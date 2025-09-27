@@ -1,12 +1,9 @@
+// tsconfig.json
 {
-  // Visit https://aka.ms/tsconfig to read more about this file
-  "compilerOptions": {
-    "target": "ES2020",
-    "module": "commonjs",
-    "outDir": "dist",
-    "rootDir": "src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true
-  }
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "NodeNext", // or "CommonJS" if not using ESM
+        "outDir": "./dist",
+        "strict": true,
+    }
 }
