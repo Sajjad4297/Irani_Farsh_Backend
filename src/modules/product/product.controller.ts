@@ -13,7 +13,7 @@ export const addProduct = async (req: Request, res: Response) => {
         const attributes = req.body.attributes ? JSON.parse(req.body.attributes) : [];
 
         const productData: Product = { ...req.body, images: images, attributes };
-        if (!productData.title || !productData.images || !productData.rating || !productData.price || !productData.size) {
+        if (!productData.title || !productData.images || !productData.rating || !productData.price || !productData.size || !productData.categoryId) {
             return res.status(400).json({ status: 'error', message: 'All fields are required' });
         }
 
@@ -34,11 +34,11 @@ export const getProductById = async (req: Request, res: Response) => {
 
         const product: Product = await readProductById(id);
         if (product) {
-            const slug = "IRF-" + product.id?.toString()?.padStart(4, "0");
+            const slug = "irf-" + product.id?.toString()?.padStart(4, "0");
 
             const sluggedProduct = { ...product, slug }
 
-            res.status(201).json({ status: 'success', message: 'Product got successfully', data: sluggedProduct })
+            res.status(200).json({ status: 'success', message: 'Product got successfully', data: sluggedProduct })
 
         }
     } catch (error) {
@@ -51,8 +51,7 @@ export const getProductsOverView = async (req: Request, res: Response) => {
     try {
         const products: Product[] = await readProductsOverView();
         if (products) {
-            res.status(201).json({ status: 'success', message: 'Products got successfully', data: products })
-
+            res.status(200).json({ status: 'success', message: 'Products got successfully', data: products })
         }
     } catch (error) {
         console.log(error)
@@ -69,7 +68,7 @@ export const removeProductsOverView = async (req: Request, res: Response) => {
 
         const result = await deleteProduct(id);
         if (result) {
-            res.status(201).json({ status: 'success', message: 'Product deleted successfully' })
+            res.status(200).json({ status: 'success', message: 'Product deleted successfully' })
 
         }
     } catch (error) {

@@ -7,5 +7,6 @@ export type Product = {
     price: string;
     size: string;
     attributes?: {key: string; value: string}[];
-
+    category?:string;
+    categoryId?:string
 }

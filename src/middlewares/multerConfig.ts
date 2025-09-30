@@ -8,9 +8,11 @@ const storage = multer.diskStorage({
     let uploadPath = "uploads/others";
 
     if (req.baseUrl.includes("product")) {
-      uploadPath = "uploads/products";
+      uploadPath = "uploads/product";
     } else if (req.baseUrl.includes("user")) {
-      uploadPath = "uploads/profiles";
+      uploadPath = "uploads/user";
+    }else if (req.baseUrl.includes("cate")) {
+      uploadPath = "uploads/category";
     }
         cb(null, uploadPath);
     },

@@ -11,7 +11,7 @@ export const createUser = async (userData: User) => {
             throw new Error('Email is already registered');
         }
 
-        const [result] : any = await
+        const [result]: any = await
             pool.query('INSERT INTO users (email, first_name, last_name, password) VALUES (?, ?, ?, ?)', [email, firstName, lastName, password]);
         return result;
     }
@@ -23,10 +23,11 @@ export const createUser = async (userData: User) => {
     }
 }
 
-export const readUserData = async (userData: User) => {
+export const readUserForLogin = async (userData: User) => {
     const { email } = userData;
     try {
-        const [user]: any = await pool.query('SELECT id, email, password,first_name , last_name FROM users WHERE email = ? LIMIT 1', [email]);
+        const [user]: any =
+        await pool.query('SELECT id, email, password,first_name AS firstName , last_name AS lastName, profile_image AS profileImage FROM users WHERE email = ? LIMIT 1', [email]);
         if (user.length === 0) {
             throw new Error('Invalid email');
         }
@@ -41,4 +42,23 @@ export const readUserData = async (userData: User) => {
 export const readUserById = async (id: string): Promise<any> => {
     const [rows] = await pool.query('SELECT * FROM users WHERE id = ?', [id]);
     return rows;
+}
+
+export const updateUserProfileImage = async (id: string, image: string) => {
+    try {
+        const [result]: any = await pool.query('UPDATE users SET profile_image = ? WHERE id = ?', [image, id]);
+        return result;
+    } catch (error) {
+        throw error;
+    }
+}
+export const readUsers = async () => {
+    try {
+        const [users]: any =
+        await pool.query('SELECT id, email,first_name AS firstName ,last_name AS lastName ,profile_image AS profileImage FROM users');
+        return users;
+    } catch (error) {
+        throw error;
+    }
+
 }

@@ -2,12 +2,12 @@ import { pool } from '../../config/db.js'
 import type { Product } from "./types.js";
 export const createProduct = async (data: Product) => {
     try {
-        const { title, images, rating, price, size, attributes } = data;
+        const { title, images, rating, price, size, attributes, categoryId } = data;
 
         // 1. Insert the product
         const [newProduct]: any = await pool.query(
-            `INSERT INTO products (title, images, rating, price, size) VALUES (?, ?, ?, ?, ?)`,
-            [title, JSON.stringify(images), rating, price, size]
+            `INSERT INTO products (title, images, rating, price, size, category_id) VALUES (?, ?, ?, ?, ?, ?)`,
+            [title, JSON.stringify(images), rating, price, size, categoryId]
         );
         const productId = newProduct.insertId;
 
@@ -22,11 +22,10 @@ export const createProduct = async (data: Product) => {
                 values.push(attr.key, attr.value);
                 placeholders.push("(?, ?)");
             });
-
             const sql = `
-    INSERT INTO attributes (attr_key, attr_value)
-    VALUES ${placeholders.join(", ")}
-  `;
+                INSERT INTO attributes (attr_key, attr_value)
+                VALUES ${placeholders.join(", ")}
+            `;
 
             const [result]: any = await pool.query(sql, values);
 
@@ -46,6 +45,7 @@ export const createProduct = async (data: Product) => {
                 `INSERT INTO products_attributes (product_id, attribute_id) VALUES ${linkPlaceholders}`,
                 linkValues
             );
+
         }
 
     } catch (err) {
@@ -56,33 +56,47 @@ export const createProduct = async (data: Product) => {
 export const readProductById = async (id: string) => {
     try {
         const [product]: any = await pool.query(`
-        SELECT
-        p.id,
-        p.title,
-        p.images,
-        p.rating,
-        p.price,
-        p.size,
-        p.created_at,
-        JSON_ARRAYAGG(
-            JSON_OBJECT(
-                'id', a.id,
-                'key', a.attr_key,
-                'value', a.attr_value
-            )
-        ) AS attributes
-        FROM products p
-        LEFT JOIN products_attributes pa ON p.id = pa.product_id
-        LEFT JOIN attributes a ON pa.attribute_id = a.id
-        WHERE p.id = ?
-        GROUP BY p.id;
+            SELECT
+                p.id,
+                p.title,
+                p.images,
+                p.rating,
+                p.price,
+                p.size,
+                c.title AS category,
+                p.created_at,
+                (
+                    SELECT JSON_ARRAYAGG(
+                        JSON_OBJECT(
+                            'id', a.id,
+                            'key', a.attr_key,
+                            'value', a.attr_value
+                        )
+                    )
+                    FROM products_attributes pa
+                    JOIN attributes a ON pa.attribute_id = a.id
+                    WHERE pa.product_id = p.id
+                ) AS attributes,
+                (
+                    SELECT JSON_ARRAYAGG(
+                        JSON_OBJECT(
+                            'content', co.content,
+                            'user', JSON_OBJECT('firstName', u.first_name, 'lastName', u.last_name, 'profileImage', u.profile_image)
+                        )
+                    )
+                    FROM comments co
+                    JOIN users u ON co.user_id = u.id
+                    WHERE co.product_id = p.id AND co.status = "approved"
+                ) AS comments
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.id
+            WHERE p.id = 3;
     `, [id])
         return product[0];
 
     } catch (err) {
         throw err;
     }
-
 }
 export const readProductsOverView = async () => {
     try {
@@ -106,27 +120,27 @@ export const readProductsOverView = async () => {
 
 }
 export const deleteProduct = async (id: string) => {
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
 
-    await conn.query(
-      `DELETE a
+        await conn.query(
+            `DELETE a
        FROM attributes a
        JOIN products_attributes pa ON a.id = pa.attribute_id
        WHERE pa.product_id = ?`,
-      [id]
-    );
+            [id]
+        );
 
-    await conn.query(`DELETE FROM products_attributes WHERE product_id = ?`, [id]);
-    await conn.query(`DELETE FROM products WHERE id = ?`, [id]);
+        await conn.query(`DELETE FROM products_attributes WHERE product_id = ?`, [id]);
+        await conn.query(`DELETE FROM products WHERE id = ?`, [id]);
 
-    await conn.commit();
-    return { success: true };
-  } catch (err) {
-    await conn.rollback();
-    throw err;
-  } finally {
-    conn.release();
-  }
+        await conn.commit();
+        return { success: true };
+    } catch (err) {
+        await conn.rollback();
+        throw err;
+    } finally {
+        conn.release();
+    }
 };

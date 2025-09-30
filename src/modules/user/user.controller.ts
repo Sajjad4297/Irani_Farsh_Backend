@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
-import { createUser, readUserData } from './user.model.js';
+import { createUser, readUserForLogin, updateUserProfileImage, readUsers } from './user.model.js';
 import { hashPassword, comparePassword } from "../../utilities/password.js";
-import { generateUserToken } from "../../utilities/auth.js";
+import { generateUserToken } from "../../utilities/token.js";
 import type { User } from "./types.js";
+import { profile } from 'console';
 export const registerUser = async (req: Request, res: Response) => {
     try {
         const userData: User = { ...req.body, password: await hashPassword(req.body.password) };
@@ -15,7 +16,7 @@ export const registerUser = async (req: Request, res: Response) => {
         const token = generateUserToken(newUser.insertId, userData.email);
         res.status(201).json({
             status: 'success', message: 'User registered successfully', sajy: token,
-            user: { id: newUser.id,firstName: userData.firstName, lastName: userData.lastName }
+            user: { id: newUser.id, firstName: userData.firstName, lastName: userData.lastName }
         });
     } catch (error) {
         if (error instanceof Error) {
@@ -32,12 +33,12 @@ export const loginUser = async (req: Request, res: Response) => {
     try {
         const userData = req.body;
 
-        const existingUser: User = await readUserData(userData);
+        const existingUser: User = await readUserForLogin(userData);
         if (existingUser.id && existingUser.email && existingUser.password && await comparePassword(req.body.password, existingUser.password)) {
             const token = generateUserToken(existingUser.id, existingUser.email);
             res.status(200).json({
                 status: 'success', message: 'User logged in successfully', sajy: token,
-                user: { id: existingUser.id,firstName: existingUser.firstName, lastName: existingUser.lastName }
+                user: { firstName: existingUser.firstName, lastName: existingUser.lastName, profileImage: existingUser.profileImage }
             });
         } else {
             res.status(401).json({ status: 'error', message: 'Invalid email or password' });
@@ -53,5 +54,37 @@ export const loginUser = async (req: Request, res: Response) => {
             }
         }
 
+    }
+}
+export const putUserProfileImage = async (req: Request, res: Response) => {
+    try {
+        const file = req.file as Express.Multer.File;
+        if (!file) {
+            return res.status(400).json({ message: "No file uploaded" });
+        }
+        // Extract filenames
+        const image = file.filename;
+        const { id: userId } = (req as any).user;
+
+        await updateUserProfileImage(userId, image);
+
+        res.status(201).json({ status: 'success', message: 'Image added successfully' });
+
+
+    } catch (error) {
+        console.log(error)
+
+        res.status(500).json({ status: 'error', message: 'Failed to set image for user' });
+    }
+}
+export const getUsers = async (req: Request, res: Response) => {
+    try {
+        const data = await readUsers();
+        if (data) {
+            res.status(200).json({ status: 'success', message: 'Users got successfully', data });
+        }
+    } catch (error) {
+        console.log(error)
+        res.status(500).json({ status: 'error', message: 'Failed to get users' });
     }
 }

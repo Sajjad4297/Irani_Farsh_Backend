@@ -9,7 +9,7 @@ export function generateUserToken(userId: string, email: string): string {
     { expiresIn: "1d" }      // token expires in 1 hour
   );
 }
-export function verifyToken(token: string) {
+export function verifyUserToken(token: string) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { id: number; email: string };
     return decoded; // contains user-specific data
