@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { createUser, readUserForLogin, updateUserProfileImage, readUsers } from './user.model.js';
+import { createUser, readUserForLogin, updateUserProfileImage, readUsers, createCartItem, updateCartItem } from './user.model.js';
 import { hashPassword, comparePassword } from "../../utilities/password.js";
 import { generateUserToken } from "../../utilities/token.js";
 import type { User } from "./types.js";
@@ -86,5 +86,37 @@ export const getUsers = async (req: Request, res: Response) => {
     } catch (error) {
         console.log(error)
         res.status(500).json({ status: 'error', message: 'Failed to get users' });
+    }
+}
+export const addCartItem = async (req: Request, res: Response) => {
+    try {
+        const { productId, quantity } = req.body;
+        if (!productId || !quantity)
+            return res.status(400).json({ status: 'error', message: 'Data is required' });
+        const { id: userId } = (req as any).user;
+
+        await createCartItem(userId, productId, quantity);
+
+        res.status(201).json({ status: 'success', message: 'Cart item added successfully' });
+
+    } catch (error) {
+        console.log(error)
+        res.status(500).json({ status: 'error', message: 'Failed to add cart item' });
+    }
+}
+export const putCartItem = async (req: Request, res: Response) => {
+    try {
+        const { productId, quantity } = req.body;
+        if (!productId || (!quantity && quantity !== 0))
+            return res.status(400).json({ status: 'error', message: 'Data is required' });
+        const { id: userId } = (req as any).user;
+
+        await updateCartItem(userId, productId, quantity);
+
+        res.status(200).json({ status: 'success', message: 'Cart item updated successfully' });
+
+    } catch (error) {
+        console.log(error)
+        res.status(500).json({ status: 'error', message: 'Failed to updated cart item' });
     }
 }

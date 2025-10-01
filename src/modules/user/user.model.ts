@@ -27,7 +27,7 @@ export const readUserForLogin = async (userData: User) => {
     const { email } = userData;
     try {
         const [user]: any =
-        await pool.query('SELECT id, email, password,first_name AS firstName , last_name AS lastName, profile_image AS profileImage FROM users WHERE email = ? LIMIT 1', [email]);
+            await pool.query('SELECT id, email, password,first_name AS firstName , last_name AS lastName, profile_image AS profileImage FROM users WHERE email = ? LIMIT 1', [email]);
         if (user.length === 0) {
             throw new Error('Invalid email');
         }
@@ -55,10 +55,37 @@ export const updateUserProfileImage = async (id: string, image: string) => {
 export const readUsers = async () => {
     try {
         const [users]: any =
-        await pool.query('SELECT id, email,first_name AS firstName ,last_name AS lastName ,profile_image AS profileImage FROM users');
+            await pool.query('SELECT id, email,first_name AS firstName ,last_name AS lastName ,profile_image AS profileImage FROM users');
         return users;
     } catch (error) {
         throw error;
     }
 
+}
+export const createCartItem = async (userId: string, productId: string, quantity: number) => {
+    try {
+        const [result]: any =
+            await pool.query('INSERT INTO cart_items (user_id , product_id, quantity) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE quantity = quantity + ?;'
+                , [userId, productId, quantity, quantity]);
+        return result;
+    } catch (error) {
+        throw error;
+    }
+}
+export const updateCartItem = async (userId: string, productId: string, quantity: number) => {
+    try {
+        if (quantity > 0) {
+            const [result]: any =
+                await pool.query('UPDATE cart_items SET quantity = ? WHERE user_id = ? AND product_id = ?;'
+                    , [quantity, userId, productId]);
+            return result;
+        } else {
+            const [result]: any =
+                await pool.query('DELETE FROM cart_items WHERE user_id = ? AND product_id = ?;'
+                    , [userId, productId]);
+            return result;
+        }
+    } catch (error) {
+        throw error;
+    }
 }

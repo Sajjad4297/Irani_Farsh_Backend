@@ -30,7 +30,7 @@ export const getProductById = async (req: Request, res: Response) => {
     try {
         const id = req.params.id;
         if (!id)
-            res.status(400).json({ status: 'error', message: 'Id is required' })
+            return res.status(400).json({ status: 'error', message: 'Id is required' })
 
         const product: Product = await readProductById(id);
         if (product) {

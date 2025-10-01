@@ -90,7 +90,7 @@ export const readProductById = async (id: string) => {
                 ) AS comments
             FROM products p
             LEFT JOIN categories c ON p.category_id = c.id
-            WHERE p.id = 3;
+            WHERE p.id = ?;
     `, [id])
         return product[0];
 
