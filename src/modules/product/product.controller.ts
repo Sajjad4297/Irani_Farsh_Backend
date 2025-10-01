@@ -32,13 +32,15 @@ export const getProductById = async (req: Request, res: Response) => {
         if (!id)
             return res.status(400).json({ status: 'error', message: 'Id is required' })
 
-        const product: Product = await readProductById(id);
+        const product = await readProductById(id);
         if (product) {
             const slug = "irf-" + product.id?.toString()?.padStart(4, "0");
-
-            const sluggedProduct = { ...product, slug }
-
-            res.status(200).json({ status: 'success', message: 'Product got successfully', data: sluggedProduct })
+            product.slug = slug;
+            product.attributes = JSON.parse(product.attributes);
+            product.comments = JSON.parse(product?.comments);
+            product.images = JSON.parse(product?.images);
+            product.comments.rating = Number(product.comments.rating);
+            res.status(200).json({ status: 'success', message: 'Product got successfully', data: product })
 
         }
     } catch (error) {
@@ -51,6 +53,10 @@ export const getProductsOverView = async (req: Request, res: Response) => {
     try {
         const products: Product[] = await readProductsOverView();
         if (products) {
+            products.forEach((product: any) => {
+                product.images = JSON.parse(product.images);
+            });
+
             res.status(200).json({ status: 'success', message: 'Products got successfully', data: products })
         }
     } catch (error) {

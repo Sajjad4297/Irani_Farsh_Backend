@@ -81,6 +81,7 @@ export const readProductById = async (id: string) => {
                     SELECT JSON_ARRAYAGG(
                         JSON_OBJECT(
                             'content', co.content,
+                            'rating',co.rating,
                             'user', JSON_OBJECT('firstName', u.first_name, 'lastName', u.last_name, 'profileImage', u.profile_image)
                         )
                     )

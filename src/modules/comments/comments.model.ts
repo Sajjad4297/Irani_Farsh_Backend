@@ -3,12 +3,12 @@ import type { Comment } from "./types.js";
 export const createComment = async (data: Comment) => {
 
     try {
-        const { userId, productId, content } = data;
-        const [result]:any = await pool.query('INSERT INTO comments (user_id, product_id, content) VALUES (?, ?, ?)',
-            [userId, productId, content]);
+        const { userId, productId, content, rating } = data;
+        const [result]:any = await pool.query('INSERT INTO comments (user_id, product_id, content, rating) VALUES (?, ?, ?, ?)',
+            [userId, productId, content, rating]);
         return result;
     }
-    catch (err: any) {
+    catch (err) {
         throw err;
     }
 }
@@ -16,7 +16,7 @@ export const readPendingComments = async () => {
 
     try {
         const [result]:any = await pool.query(`
-            SELECT c.content,
+            SELECT c.content,c.rating,
             JSON_OBJECT('firstName' , u.first_name , 'lastName' , u.last_name, 'profileImage', u.profile_image ) AS user,
             JSON_OBJECT('slug',p.id, 'images',p.images) AS product
             FROM comments c

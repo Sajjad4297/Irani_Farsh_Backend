@@ -4,4 +4,5 @@ export type Comment = {
     productId?: string;
     content: string;
     status?: "pending" | "approved" | "rejected";
+    rating: number;
 }

@@ -3,11 +3,11 @@ import type { Request, Response } from 'express'
 export const addComment = async (req: Request, res: Response) => {
     try {
         const { id: userId } = (req as any).user;
-        const { content, product: productId } = req.body;
-        if (!content || !productId)
+        const { content, product: productId, rating } = req.body;
+        if (!content || !productId || !rating)
             res.status(400).json({ status: 'error', message: 'Fields required' })
 
-        await createComment({ userId, content, productId });
+        await createComment({ userId, content, productId, rating });
 
         res.status(201).json({ status: 'success', message: 'Comment added successfully' });
 
@@ -23,13 +23,15 @@ export const getPendingComments = async (req: Request, res: Response) => {
 
         if (data) {
             data.forEach((comment: any) => {
+                comment.user = JSON.parse(comment.user);
+                comment.product = JSON.parse(comment.product);
+                comment.product.images = JSON.parse(comment.product.images);
                 const slug = "irf-" + comment.product.slug?.toString()?.padStart(4, "0");
                 comment.product.slug = slug;
+                comment.rating = Number(comment.rating);
             });
 
-            const sluggedData = { ...data, product: { ...data.product } }
-
-            res.status(200).json({ status: 'success', message: 'Comments got successfully', data: sluggedData });
+            res.status(200).json({ status: 'success', message: 'Comments got successfully', data });
         }
 
     } catch (error) {
