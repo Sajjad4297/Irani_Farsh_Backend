@@ -68,7 +68,6 @@ export const readProductById = async (id: string) => {
                 (
                     SELECT JSON_ARRAYAGG(
                         JSON_OBJECT(
-                            'id', a.id,
                             'key', a.attr_key,
                             'value', a.attr_value
                         )
@@ -92,7 +91,8 @@ export const readProductById = async (id: string) => {
             FROM products p
             LEFT JOIN categories c ON p.category_id = c.id
             WHERE p.id = ?;
-    `, [id])
+    `, [id]);
+        if (!product || !product[0]) return null;
         return product[0];
 
     } catch (err) {

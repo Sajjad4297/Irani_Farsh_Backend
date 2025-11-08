@@ -30,31 +30,54 @@ export const getProductById = async (req: Request, res: Response) => {
     try {
         const id = req.params.id;
         if (!id)
-            return res.status(400).json({ status: 'error', message: 'Id is required' })
+            return res.status(400).json({ status: 'error', message: 'Id is required' });
 
         const product = await readProductById(id);
-        if (product) {
-            const slug = "irf-" + product.id?.toString()?.padStart(4, "0");
-            product.slug = slug;
-            product.attributes = JSON.parse(product.attributes);
-            product.comments = JSON.parse(product?.comments);
-            product.images = JSON.parse(product?.images);
-            product.comments.rating = Number(product.comments.rating);
-            res.status(200).json({ status: 'success', message: 'Product got successfully', data: product })
+        if (!product)
+            return res.status(404).json({ status: 'error', message: 'Product not found' });
 
+        product.slug = "irf-" + product.id.toString().padStart(4, "0");
+
+        if (typeof product.images === "string") {
+            try {
+                product.images = JSON.parse(product.images);
+            } catch {
+                product.images = [];
+            }
         }
-    } catch (error) {
-        console.log(error)
-        res.status(500).json({ status: 'error', message: 'Failed to get product' });
 
+        if (typeof product.attributes === "string") {
+            product.attributes = JSON.parse(product.attributes);
+        }
+
+        if (typeof product.comments === "string") {
+            product.comments = JSON.parse(product.comments);
+        }
+
+        if (Array.isArray(product.comments)) {
+            product.comments = product.comments.map((c: any) => ({
+                ...c,
+                rating: Number(c.rating),
+            }));
+        }
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Product got successfully',
+            data: product,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ status: 'error', message: 'Failed to get product' });
     }
-}
+};
 export const getProductsOverView = async (req: Request, res: Response) => {
     try {
         const products: Product[] = await readProductsOverView();
         if (products) {
             products.forEach((product: any) => {
                 product.images = JSON.parse(product.images);
+                product.slug = "irf-" + product.id.toString().padStart(4, "0");
             });
 
             res.status(200).json({ status: 'success', message: 'Products got successfully', data: products })

@@ -16,7 +16,7 @@ export const readPendingComments = async () => {
 
     try {
         const [result]:any = await pool.query(`
-            SELECT c.content,c.rating,
+            SELECT c.id,c.content,c.rating,
             JSON_OBJECT('firstName' , u.first_name , 'lastName' , u.last_name, 'profileImage', u.profile_image ) AS user,
             JSON_OBJECT('slug',p.id, 'images',p.images) AS product
             FROM comments c

@@ -38,3 +38,33 @@ export const deleteCategory = async (id: string) => {
         throw error;
     }
 }
+export const readCategoryBySlug = async (slug: string) => {
+    try {
+        const [result]: any = await pool.query(
+            `
+            SELECT
+                c.title AS category,
+                (
+                    SELECT JSON_ARRAYAGG(
+                        JSON_OBJECT(
+                            'id', p.id,
+                            'title', p.title,
+                            'images', p.images,
+                            'rating', p.rating,
+                            'price', p.price,
+                            'size', p.size,
+                            'created_at', p.created_at
+                        )
+                    )
+                ) AS products
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.id
+            WHERE c.slug = ?;
+
+            `, [slug]);
+            
+        return result[0] ;
+    } catch (error) {
+        throw error;
+    }
+}

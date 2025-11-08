@@ -1,4 +1,4 @@
-import { createCategory, readCategories, updateCategory, deleteCategory } from "./category.model.js"
+import { createCategory, readCategories, updateCategory, deleteCategory, readCategoryBySlug } from "./category.model.js"
 import type { Request, Response } from 'express'
 export const addCategory = async (req: Request, res: Response) => {
     try {
@@ -87,4 +87,38 @@ export const removeCategory = async (req: Request, res: Response) => {
 
         res.status(500).json({ status: 'error', message: 'Failed to deleted Category' });
     }
+}
+export const getCategoryBySlug = async (req: Request, res: Response) => {
+    try {
+        const slug = req.params.slug;
+        if (!slug)
+            return res.status(400).json({ status: 'error', message: 'Slug is required' });
+
+        const result = await readCategoryBySlug(slug);
+        if (!result || !result.category)
+            return res.status(404).json({ status: 'error', message: 'Category not found' });
+
+        if (typeof result.products === "string") {
+            result.products = JSON.parse(result.products);
+        }
+
+        if (result.products.length > 0) {
+            result.products.forEach((product: any) => {
+                product.images = JSON.parse(product.images);
+                product.slug = "irf-" + product.id.toString().padStart(4, "0");
+            });
+        } else return res.status(200).json({ status: 'success', message: 'no products in this category', data: result });
+
+
+
+        res.status(200).json({
+            status: 'success',
+            message: 'Products in category got successfully',
+            data: result,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ status: 'error', message: 'Failed to get category' });
+    }
+
 }
