@@ -23,5 +23,16 @@ export class CartItemsService {
 
         return({ success: true, message: 'Cart item updated successfully' });
     }
+    async buyAll(user: { id: number, email: string }) {
+        const { id: userId } = user;
+        await this.cartItemsRepository.buyAll(userId);
+
+        return({ success: true, message: 'Cart items bought successfully' });
+    }
+    async findAllOrders(user: { id: number, email: string }) {
+        const { id: userId } = user;
+        const orders = await this.cartItemsRepository.findAllOrders(userId);
+        return({ success: true, message: 'Orders got successfully', orders });
+    }
 
 }

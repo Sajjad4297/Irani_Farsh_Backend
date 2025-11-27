@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { BadRequestException, Injectable } from "@nestjs/common";
 import { MysqlService } from "src/database/mysql.service";
 
 @Injectable()
@@ -27,5 +27,81 @@ export class CartItemsRepository {
             return result;
         }
 
+    }
+    async buyAll(userId: number) {
+        const pool = this.mysql.getPool();
+        const conn = await pool.getConnection();
+
+        try {
+            await conn.beginTransaction();
+
+            // 1. Get user's cart items
+            const [cartItems]: any = await conn.query(
+                `SELECT product_id, quantity FROM cart_items WHERE user_id = ?`,
+                [userId]
+            );
+
+            if (cartItems.length === 0) {
+                await conn.rollback();
+                throw new BadRequestException("Cart is empty");
+            }
+
+            // 2. Insert into orders table
+            // Assuming orders table has: user_id, product_id, quantity
+            const orderInserts = cartItems.map((item: any) =>
+                [userId, item.product_id, item.quantity]
+            );
+
+            await conn.query(
+                `INSERT INTO orders (user_id, product_id, quantity)
+             VALUES ?`,
+                [orderInserts]
+            );
+
+            // 3. Delete the cart
+            await conn.query(
+                `DELETE FROM cart_items WHERE user_id = ?`,
+                [userId]
+            );
+
+            // 4. Commit the transaction
+            await conn.commit();
+
+            return true;
+
+        } catch (error) {
+            await conn.rollback();
+            throw error;
+        } finally {
+            conn.release();
+        }
+    }
+    async findAllOrders(userId: number) {
+        const [rows]: any = await this.mysql.getPool().query(
+            `SELECT
+                o.id,
+                o.user_id AS userId,
+                o.quantity,
+                p.id AS productId,
+                p.title AS productTitle,
+                p.images AS productImages,
+                p.price AS productPrice
+            FROM orders o
+            JOIN products p ON o.product_id = p.id
+            WHERE o.user_id = ?
+            `, [userId]);
+        const orders = rows.length > 0 ? rows.map(item => ({
+            id: item.id,
+            quantity: item.quantity,
+            product: {
+                id: item.productId,
+                title: item.productTitle,
+                images: JSON.parse(item.productImages),
+                price: item.productPrice,
+                slug: "irf-" + item.id.toString().padStart(4, "0")
+            }
+        })) : null;
+
+        return  orders ;
     }
 }

@@ -34,9 +34,10 @@ export class UsersController {
         return this.usersService.updateProfile(user, file);
     }
 
-    @Put(':id')
-    update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-        return this.usersService.update(+id, updateUserDto);
+    @Put()
+    @UseGuards(AuthGuard)
+    update(@Body() updateUserDto: UpdateUserDto, @User() user) {
+        return this.usersService.update(updateUserDto, user);
     }
     @Get('info')
     @UseGuards(AuthGuard)

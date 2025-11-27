@@ -69,13 +69,21 @@ export class UsersService {
             success: true, message: 'Profile updated successfully'
         });
     }
-    async update(id: number, updateUserDto: UpdateUserDto) {
-        return `This action updates a #${id} user`;
+    async update(body: UpdateUserDto, user: { id: number; email: string }) {
+        if (!body || Object.keys(body).length === 0) {
+            return new BadRequestException('No data provided');
+        }
+        if (body.password) {
+            body.password = await hashPassword(body.password);
+        }
+
+        await this.usersRepository.update(user.id, body);
+        return ({ success: true, message: 'User updated successfully' });
     }
-    
+
     async findUserInfo(user: { id: number; email: string }) {
         const result = await this.usersRepository.findUserInfo(user.id);
-            return ({ success: true, message: 'User info got successfully', result });
+        return ({ success: true, message: 'User info got successfully', result });
     }
 
 

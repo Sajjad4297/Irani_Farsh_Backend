@@ -22,4 +22,14 @@ export class CartItemsController {
         return this.cartItemsService.update(updateCartItemDto, user);
     }
 
+    @Post('order')
+    @UseGuards(AuthGuard)
+    buyAll(@User() user) {
+        return this.cartItemsService.buyAll(user);
+    }
+    @Get('order')
+    @UseGuards(AuthGuard)
+    findAllOrders(@User() user) {
+        return this.cartItemsService.findAllOrders(user);
+    }
 }
