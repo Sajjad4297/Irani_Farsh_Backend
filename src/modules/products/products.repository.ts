@@ -66,8 +66,9 @@ export class ProductsRepository {
 
     async findAll() {
         const [rows]: any = await this.mysql.getPool().query(`
-            SELECT id, title, images, rating, price, size, created_at
-            FROM products
+            SELECT p.id, p.title, p.images, p.rating, p.price, p.size, p.created_at,d.amount as discount
+            FROM products p
+            LEFT JOIN discounts d ON p.id = d.product_id
         `);
         return rows;
     }
@@ -77,9 +78,10 @@ async findById(id: number) {
 
     // 1) Product + category
     const productQuery = pool.query(`
-        SELECT p.*, c.title AS category
+        SELECT p.*, c.title AS category,d.amount as discount
         FROM products p
         JOIN categories c ON c.id = p.category_id
+        LEFT JOIN discounts d ON p.id = d.product_id
         WHERE p.id = ?
     `, [id]);
 

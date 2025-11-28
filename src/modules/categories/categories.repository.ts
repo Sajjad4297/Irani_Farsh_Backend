@@ -48,12 +48,14 @@ export class CategoriesRepository {
                             'rating', p.rating,
                             'price', p.price,
                             'size', p.size,
-                            'created_at', p.created_at
+                            'created_at', p.created_at,
+                            'discount', d.amount
                         )
                     )
                 ) AS products
             FROM products p
             LEFT JOIN categories c ON p.category_id = c.id
+            LEFT JOIN discounts d ON p.id = d.product_id
             WHERE c.slug = ?;
 
             `, [slug]);

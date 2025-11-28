@@ -1,7 +1,6 @@
 export interface Discount {
-    id?: string
-    title: string
-    description: string
-    startDate: string
-    endDate: string
+    id?: string;
+    productId: number;
+    amount: number;
+    days: number;
 }

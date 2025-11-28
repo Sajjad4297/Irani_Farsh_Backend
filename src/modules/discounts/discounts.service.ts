@@ -1,26 +1,28 @@
 import { Injectable } from '@nestjs/common';
 import { CreateDiscountDto } from './dto/create-discount.dto';
 import { UpdateDiscountDto } from './dto/update-discount.dto';
+import { DiscountsRepository } from './discounts.repository';
 
 @Injectable()
 export class DiscountsService {
-  create(createDiscountDto: CreateDiscountDto) {
-    return 'This action adds a new discount';
+    constructor(private readonly discountsRepository: DiscountsRepository){}
+  async create(body: CreateDiscountDto) {
+    await this.discountsRepository.create(body);
+    return({success: true,message: 'Discount created successfully'});
   }
 
-  findAll() {
-    return `This action returns all discounts`;
+  async findAll() {
+    const data = await this.discountsRepository.findAll();
+    return ({ success: true, message: 'Discounts got successfully', data });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} discount`;
+  async update(id: number, body: UpdateDiscountDto) {
+    await this.discountsRepository.update(id, body);
+    return ({ success: true, message: 'Discount updated successfully' });
   }
 
-  update(id: number, updateDiscountDto: UpdateDiscountDto) {
-    return `This action updates a #${id} discount`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} discount`;
+  async remove(id: number) {
+    await this.discountsRepository.delete(id);
+    return ({ success: true, message: 'Discount deleted successfully' });
   }
 }
