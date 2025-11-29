@@ -68,7 +68,7 @@ export class ProductsRepository {
         const [rows]: any = await this.mysql.getPool().query(`
             SELECT p.id, p.title, p.images, p.rating, p.price, p.size, p.created_at,d.amount as discount
             FROM products p
-            LEFT JOIN discounts d ON p.id = d.product_id
+            LEFT JOIN discounts d ON p.id = d.product_id AND NOW() <= d.expires_at
         `);
         return rows;
     }
@@ -81,7 +81,7 @@ async findById(id: number) {
         SELECT p.*, c.title AS category,d.amount as discount
         FROM products p
         JOIN categories c ON c.id = p.category_id
-        LEFT JOIN discounts d ON p.id = d.product_id
+        LEFT JOIN discounts d ON p.id = d.product_id AND NOW() <= d.expires_at
         WHERE p.id = ?
     `, [id]);
 
@@ -110,12 +110,11 @@ async findById(id: number) {
 
     // 4) Similar products (LIMIT 3)
     const similarQuery = pool.query(`
-        SELECT id, title, images, price, rating, size
-        FROM products
-        WHERE category_id = (
-            SELECT category_id FROM products WHERE id = ?
-        )
-        AND id != ?
+        SELECT p.id, p.title, p.images, p.price, p.rating, p.size, d.amount as discount
+        FROM products p
+        LEFT JOIN discounts d ON p.id = d.product_id AND NOW() <= d.expires_at
+        WHERE category_id = p.category_id
+        AND p.id != ?
         ORDER BY created_at DESC
         LIMIT 3
     `, [id, id]);

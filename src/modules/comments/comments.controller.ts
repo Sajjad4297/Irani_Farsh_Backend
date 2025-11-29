@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Put, UseGuards } fro
 import { CommentsService } from './comments.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
-import { AuthGuard } from 'src/common/guards/auth.guard';
+import { UserAuthGuard } from 'src/common/guards/user-auth.guard';
 import { User } from 'src/common/decorators/user.decorator';
 
 @Controller('comments')
@@ -10,7 +10,7 @@ export class CommentsController {
     constructor(private readonly commentsService: CommentsService) { }
 
     @Post()
-    @UseGuards(AuthGuard)
+    @UseGuards(UserAuthGuard)
     create(@Body() createCommentDto: CreateCommentDto, @User() user) {
         return this.commentsService.create(createCommentDto, user);
     }

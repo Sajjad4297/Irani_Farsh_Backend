@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, Put, UseGuards } fro
 import { CartItemsService } from './cart-items.service';
 import { CreateCartItemDto } from './dto/create-cart-item.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
-import { AuthGuard } from 'src/common/guards/auth.guard';
+import { UserAuthGuard } from 'src/common/guards/user-auth.guard';
 import { User } from 'src/common/decorators/user.decorator';
 
 @Controller('cart-items')
@@ -10,25 +10,25 @@ export class CartItemsController {
     constructor(private readonly cartItemsService: CartItemsService) { }
 
     @Post()
-    @UseGuards(AuthGuard)
+    @UseGuards(UserAuthGuard)
     create(@Body() createCartItemDto: CreateCartItemDto, @User() user) {
         return this.cartItemsService.create(createCartItemDto, user);
     }
 
 
     @Put()
-    @UseGuards(AuthGuard)
+    @UseGuards(UserAuthGuard)
     update(@Body() updateCartItemDto: UpdateCartItemDto, @User() user) {
         return this.cartItemsService.update(updateCartItemDto, user);
     }
 
     @Post('order')
-    @UseGuards(AuthGuard)
+    @UseGuards(UserAuthGuard)
     buyAll(@User() user) {
         return this.cartItemsService.buyAll(user);
     }
     @Get('order')
-    @UseGuards(AuthGuard)
+    @UseGuards(UserAuthGuard)
     findAllOrders(@User() user) {
         return this.cartItemsService.findAllOrders(user);
     }

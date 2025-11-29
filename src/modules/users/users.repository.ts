@@ -89,7 +89,7 @@ export class UsersRepository {
     async findUserInfo(id: number) {
         const pool = this.mysql.getPool();
 
-        const [usersResult, cartItemsResult]: any = await Promise.all([
+        const [usersResult, cartItemsResult, orderItemsResult, commentsResult]: any = await Promise.all([
             pool.query(
                 `SELECT
                 id,
@@ -113,11 +113,35 @@ export class UsersRepository {
                 p.id AS productId,
                 p.title AS productTitle,
                 p.images AS productImages,
-                p.price AS productPrice
+                p.price AS productPrice,
+                d.amount AS discount
             FROM cart_items ci
             JOIN products p ON ci.product_id = p.id
+            LEFT JOIN discounts d ON p.id = d.product_id AND NOW() <= d.expires_at
             WHERE ci.user_id = ?`,
                 [id]
+            ),
+            pool.query(
+                `SELECT
+                o.id,
+                o.user_id AS userId,
+                o.quantity,
+                p.id AS productId,
+                p.title AS productTitle,
+                p.images AS productImages,
+                p.price AS productPrice,
+                d.amount AS discount
+            FROM orders o
+            JOIN products p ON o.product_id = p.id
+            LEFT JOIN discounts d ON p.id = d.product_id AND NOW() <= d.expires_at
+            WHERE o.user_id = ?
+                `, [id]),
+            pool.query(
+                `SELECT
+                    count(*) as count
+                FROM comments
+                WHERE user_id = ?
+                `, [id]
             )
         ]);
 
@@ -132,10 +156,29 @@ export class UsersRepository {
                 title: item.productTitle,
                 images: JSON.parse(item.productImages),
                 price: item.productPrice,
-                slug: "irf-" + item.id.toString().padStart(4, "0")
+                slug: "irf-" + item.id.toString().padStart(4, "0"),
+                discount: item.discount
             }
         })) : null;
 
-        return { ...user, cartItems };
+        const orders = orderItemsResult[0].length > 0 ? orderItemsResult[0].map(item => ({
+            id: item.id,
+            quantity: item.quantity,
+            product: {
+                id: item.productId,
+                title: item.productTitle,
+                images: JSON.parse(item.productImages),
+                price: item.productPrice,
+                slug: "irf-" + item.id.toString().padStart(4, "0"),
+                discount: item.discount
+            }
+        })) : null;
+        try {
+            user.address = JSON.parse(user.address);
+        } catch (e) {
+
+        }
+
+        return { ...user, address: user.address, commentsCount: commentsResult[0][0].count, cartItems, orders };
     }
 }

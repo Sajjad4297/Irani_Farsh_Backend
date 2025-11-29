@@ -5,17 +5,21 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
 import { Files } from 'src/common/decorators/files.decorator';
 import { FastifyFileInterceptor } from 'src/common/interceptors/fastify-file.interceptor';
-import { AuthGuard } from 'src/common/guards/auth.guard';
+import { UserAuthGuard } from 'src/common/guards/user-auth.guard';
 import { User } from 'src/common/decorators/user.decorator';
+import { AuthAttemptLogInterceptor } from 'src/common/interceptors/auth-attempt-log.interceptor';
 
 @Controller('users')
 export class UsersController {
     constructor(private readonly usersService: UsersService) { }
+
+    @UseInterceptors(AuthAttemptLogInterceptor)
     @Post('register')
     login(@Body() registerUserDto: RegisterUserDto) {
         return this.usersService.register(registerUserDto);
     }
 
+    @UseInterceptors(AuthAttemptLogInterceptor)
     @Post('login')
     register(@Body() loginUserDto: LoginUserDto) {
         return this.usersService.login(loginUserDto);
@@ -28,19 +32,19 @@ export class UsersController {
     }
 
     @Put('profileImage')
-    @UseGuards(AuthGuard)
+    @UseGuards(UserAuthGuard)
     @UseInterceptors(FastifyFileInterceptor)
     updateProfile(@User() user, @Files() file) {
         return this.usersService.updateProfile(user, file);
     }
 
     @Put()
-    @UseGuards(AuthGuard)
+    @UseGuards(UserAuthGuard)
     update(@Body() updateUserDto: UpdateUserDto, @User() user) {
         return this.usersService.update(updateUserDto, user);
     }
     @Get('info')
-    @UseGuards(AuthGuard)
+    @UseGuards(UserAuthGuard)
     findUserInfo(@User() user) {
         return this.usersService.findUserInfo(user);
     }

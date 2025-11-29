@@ -1,31 +1,51 @@
 import { BadRequestException, Injectable } from "@nestjs/common";
 import { loginAdminDto } from "./app.controller";
 import { generateAdminToken, verifyAdminToken } from "./common/utils/token";
+import { FastifyReply } from "fastify";
 
 @Injectable()
 export class AppService {
-    login(body: loginAdminDto) {
-        const { userName, password } = body;
+    login(body: loginAdminDto, reply: FastifyReply) {
+        const { username, password } = body;
         const admins = [
             {
-                userName: "sajy",
+                name: "سجاد عزیز",
+                username: "sajy",
                 password: "@Sajjad2005"
             },
             {
-                userName: "sjad002",
+                name: 'سجاد عزیز',
+                username: "sjad002",
                 password: "Sajjad1384@@"
             },
             {
-                userName: "mahdi-m84",
+                name: "مهدی عزیز",
+                username: "mahdi-m84",
                 password: "Mahdi1384"
             },
         ]
-        const admin = admins.find(a => a.userName === userName && a.password === password);
+        const admin = admins.find(a => a.username === username && a.password === password);
 
         if (admin) {
-            const token = generateAdminToken(admin.userName);
-            console.log(verifyAdminToken(token));
-            return { success: true, message: "Admin logged in successfully", sajy: token };
+            const token = generateAdminToken(admin.username);
+            reply.setCookie('token', token, {
+                httpOnly: true,
+                signed: true,
+                secure: false, //change to 'true' in production
+                sameSite: 'none', // change to 'strict' in production
+                path: '/',
+                maxAge: 60 * 60 * 24 * 1
+            });
+            reply.setCookie('adminName', admin.name, {
+                httpOnly: false,
+                signed: true,
+                secure: false, //change to 'true' in production
+                sameSite: 'none', // change to 'strict' in production
+                path: '/',
+                maxAge: 60 * 60 * 24 * 1,
+            });
+
+            return { success: true, message: "Admin logged in successfully" };
         }
 
         throw new BadRequestException("Invalid username or password");

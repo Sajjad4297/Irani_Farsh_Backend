@@ -76,7 +76,9 @@ export class UsersService {
         if (body.password) {
             body.password = await hashPassword(body.password);
         }
-
+        if (body.address) {
+            body.address = JSON.stringify(body.address);
+        }
         await this.usersRepository.update(user.id, body);
         return ({ success: true, message: 'User updated successfully' });
     }

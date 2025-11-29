@@ -6,6 +6,7 @@ import { ValidationPipe } from '@nestjs/common';
 import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import { join } from 'path';
+import fastifyCookie from '@fastify/cookie';
 
 async function bootstrap() {
     const app = await NestFactory.create<NestFastifyApplication>(
@@ -40,6 +41,9 @@ async function bootstrap() {
         root: join(__dirname, '..', 'uploads'),
         prefix: '/uploads/', // Explicit prefix
         decorateReply: false, // Important for NestJS with Fastify
+    });
+    await app.register(fastifyCookie, {
+        secret: process.env.COOKIE_SECRET || "supersecret@!#%$&",
     });
 
     await app.listen(process.env.PORT ?? 3000, '0.0.0.0');

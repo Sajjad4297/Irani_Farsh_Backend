@@ -55,7 +55,7 @@ export class CategoriesRepository {
                 ) AS products
             FROM products p
             LEFT JOIN categories c ON p.category_id = c.id
-            LEFT JOIN discounts d ON p.id = d.product_id
+            LEFT JOIN discounts d ON p.id = d.product_id AND NOW() <= d.expires_at
             WHERE c.slug = ?;
 
             `, [slug]);

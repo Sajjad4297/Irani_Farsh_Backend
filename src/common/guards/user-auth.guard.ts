@@ -6,12 +6,12 @@ import {
   ForbiddenException
 } from '@nestjs/common';
 import { verifyUserToken } from '../utils/token'; // YOUR verify function
-import { Request } from 'express';
+import { FastifyRequest } from 'fastify';
 
 @Injectable()
-export class AuthGuard implements CanActivate {
+export class UserAuthGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
-    const req: Request = context.switchToHttp().getRequest();
+    const req: FastifyRequest = context.switchToHttp().getRequest();
 
     const authHeader = req.headers['authorization'];
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

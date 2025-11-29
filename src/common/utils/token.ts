@@ -6,7 +6,7 @@ export function generateUserToken(userId: string, email: string): string {
     return jwt.sign(
         { id: userId, email },   // user-specific payload
         JWT_SECRET,
-        { expiresIn: "30d" }      // token expires in 1 hour
+        { expiresIn: "30d" }      // token expires in 30 days
     );
 }
 export function verifyUserToken(token: string) {
@@ -21,7 +21,7 @@ export function generateAdminToken(admin: string): string {
     return jwt.sign(
         {admin},
         JWT_SECRET,
-        { expiresIn: "30d" }      // token expires in 1 hour
+        { expiresIn: "1d" }      // token expires in 1 days
     );
 }
 export function verifyAdminToken(token: string) {
