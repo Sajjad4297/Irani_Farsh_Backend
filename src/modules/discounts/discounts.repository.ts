@@ -4,34 +4,34 @@ import { Discount } from "./interfaces/discount.interface";
 
 @Injectable()
 export class DiscountsRepository {
-    constructor(private readonly mysql: MysqlService) {}
+    constructor(private readonly mysql: MysqlService) { }
 
-async create(data: Discount) {
-    const { productId, amount, days } = data;
+    async create(data: Discount) {
+        const { productId, amount, days } = data;
 
-    try {
-        const [result]: any = await this.mysql.getPool().query(
-            `INSERT INTO discounts (product_id, amount, duration_days)
+        try {
+            const [result]: any = await this.mysql.getPool().query(
+                `INSERT INTO discounts (product_id, amount, duration_days)
              VALUES (?, ?, ?)`,
-            [productId, amount, days]
-        );
-
-        return result;
-
-    } catch (err: any) {
-        // Duplicate product_id
-        if (err.code === "ER_DUP_ENTRY") {
-            throw new BadRequestException(
-                `A discount already exists for this product`
+                [productId, amount, days]
             );
+
+            return result;
+
+        } catch (err: any) {
+            // Duplicate product_id
+            if (err.code === "ER_DUP_ENTRY") {
+                throw new BadRequestException(
+                    `A discount already exists for this product`
+                );
+            }
+
+            throw new InternalServerErrorException("Something went wrong");
         }
-
-        throw new InternalServerErrorException("Something went wrong");
     }
-}
 
-async findAll() {
-    const [rows]: any = await this.mysql.getPool().query(`
+    async findAll() {
+        const [rows]: any = await this.mysql.getPool().query(`
         SELECT
             d.id,
             d.amount,
@@ -47,28 +47,28 @@ async findAll() {
         WHERE NOW() <= d.expires_at;
     `);
 
-    // Parse images for each row
-    return rows.map((row) => ({
-        id:row.id,
-        amount:row.amount,
-        days:row.days,
-        product: {
-            title: row.title,
-            price: row.price,
-            rating: row.rating,
-            size: row.size,
-            slug: "irf-" + row.product_id.toString().padStart(4, "0"),
-            images: JSON.parse(row.images)
-        }
-    }));
-}
+        // Parse images for each row
+        return rows.map((row) => ({
+            id: row.id,
+            amount: row.amount,
+            days: row.days,
+            product: {
+                title: row.title,
+                price: row.price,
+                rating: row.rating,
+                size: row.size,
+                slug: "irf-" + row.product_id.toString().padStart(4, "0"),
+                images: JSON.parse(row.images)
+            }
+        }));
+    }
 
     async update(id: number, data: Discount) {
-        const { productId, amount, days } = data;
+        const { amount, days } = data;
 
         const [result]: any = await this.mysql.getPool().query(
-            'UPDATE discounts SET product_id = ?, amount = ?, duration_days = ? WHERE id = ?',
-            [productId, amount, days, id]
+            'UPDATE discounts SET amount = ?, duration_days = ? WHERE id = ?',
+            [amount, days, id]
         );
 
         return result;

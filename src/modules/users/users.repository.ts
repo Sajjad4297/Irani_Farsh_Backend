@@ -123,18 +123,12 @@ export class UsersRepository {
             ),
             pool.query(
                 `SELECT
-                o.id,
-                o.user_id AS userId,
-                o.quantity,
-                p.id AS productId,
-                p.title AS productTitle,
-                p.images AS productImages,
-                p.price AS productPrice,
-                d.amount AS discount
-            FROM orders o
-            JOIN products p ON o.product_id = p.id
-            LEFT JOIN discounts d ON p.id = d.product_id AND NOW() <= d.expires_at
-            WHERE o.user_id = ?
+                id,
+                user_id AS userId,
+                quantity,
+                product
+            FROM orders
+            WHERE user_id = ?
                 `, [id]),
             pool.query(
                 `SELECT
@@ -165,13 +159,9 @@ export class UsersRepository {
             id: item.id,
             quantity: item.quantity,
             product: {
-                id: item.productId,
-                title: item.productTitle,
-                images: JSON.parse(item.productImages),
-                price: item.productPrice,
-                slug: "irf-" + item.id.toString().padStart(4, "0"),
-                discount: item.discount
-            }
+                 ...JSON.parse(item.product),
+                  images: JSON.parse(JSON.parse(item.product).images),
+                   slug: "irf-" + JSON.parse(item.product).id.toString().padStart(4, "0") }
         })) : null;
         try {
             user.address = JSON.parse(user.address);

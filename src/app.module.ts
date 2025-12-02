@@ -10,11 +10,12 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ActionLogInterceptor } from './common/interceptors/action-log.interceptor';
+import { MailService } from './common/utils/mail.service';
 
 @Module({
     imports: [ProductsModule, DatabaseModule, CategoriesModule, UsersModule, CommentsModule, CartItemsModule, DiscountsModule],
     controllers: [AppController],
-    providers: [AppService,{
+    providers: [AppService,MailService,{
       provide: APP_INTERCEPTOR,
       useClass: ActionLogInterceptor,
     }],

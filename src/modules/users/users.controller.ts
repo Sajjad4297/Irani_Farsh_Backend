@@ -8,6 +8,7 @@ import { FastifyFileInterceptor } from 'src/common/interceptors/fastify-file.int
 import { UserAuthGuard } from 'src/common/guards/user-auth.guard';
 import { User } from 'src/common/decorators/user.decorator';
 import { AuthAttemptLogInterceptor } from 'src/common/interceptors/auth-attempt-log.interceptor';
+import { ImageValidationPipe } from 'src/common/pipes/image-validation.pipe';
 
 @Controller('users')
 export class UsersController {
@@ -34,7 +35,7 @@ export class UsersController {
     @Put('profileImage')
     @UseGuards(UserAuthGuard)
     @UseInterceptors(FastifyFileInterceptor)
-    updateProfile(@User() user, @Files() file) {
+    updateProfile(@User() user, @Files(ImageValidationPipe) file) {
         return this.usersService.updateProfile(user, file);
     }
 

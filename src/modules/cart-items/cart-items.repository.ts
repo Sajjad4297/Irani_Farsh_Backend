@@ -45,15 +45,31 @@ export class CartItemsRepository {
                 await conn.rollback();
                 throw new BadRequestException("Cart is empty");
             }
-
-            // 2. Insert into orders table
-            // Assuming orders table has: user_id, product_id, quantity
+            // 2. Get products
+            const [products]: any = await conn.query(
+                `SELECT
+                p.id,
+                p.title,
+                p.images,
+                p.price,
+                d.amount AS discount
+                FROM products p
+                LEFT JOIN discounts d ON p.id = d.product_id AND NOW() <= d.expires_at
+                  WHERE p.id IN (?)`,
+                [cartItems.map((item: any) => item.product_id)]
+            )
+            cartItems.forEach((item: any) => {
+                const product = products.find((p: any) => p.id === item.product_id);
+                item.product = JSON.stringify(product);
+            })
+            // 3. Insert into orders table
+            // Assuming orders table has: user_id, product_id,product, quantity
             const orderInserts = cartItems.map((item: any) =>
-                [userId, item.product_id, item.quantity]
+                [userId, item.product_id,item.product, item.quantity]
             );
 
             await conn.query(
-                `INSERT INTO orders (user_id, product_id, quantity)
+                `INSERT INTO orders (user_id, product_id, product, quantity)
              VALUES ?`,
                 [orderInserts]
             );

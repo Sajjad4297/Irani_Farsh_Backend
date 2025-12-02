@@ -4,7 +4,7 @@ import {
     ExecutionContext,
     CallHandler
 } from '@nestjs/common';
-import { Observable, tap } from 'rxjs';
+import { catchError, Observable, tap } from 'rxjs';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -69,18 +69,29 @@ export class ActionLogInterceptor implements NestInterceptor {
             : `User:(${actor.identifier})`;
         const now = getJalaliTimestamp();
 
-        const log = `[${now}] ${request.method} ${request.url}
-Actor: ${identifier}
-Body: ${JSON.stringify(request.body)}
-`;
 
         const startTime = Date.now();
 
         return next.handle().pipe(
             tap(() => {
+                const log = `[${now}] ${request.method} ${request.url} SUCCESS
+Actor: ${identifier}
+Body: ${JSON.stringify(request.body)}
+`;
+
                 const duration = Date.now() - startTime;
                 fs.promises.appendFile(logFile, log + `Took: ${duration}ms\n\n`).catch(console.error);
             }),
+            catchError((err) => {
+                const log = `[${now}] ${request.method} ${request.url} FAILED
+Actor: ${identifier}
+Body: ${JSON.stringify(request.body)}
+Error: ${err.message}
+`;
+                const duration = Date.now() - startTime;
+                fs.promises.appendFile(logFile, log + `Took: ${duration}ms\n\n`).catch(console.error);
+                throw err;
+            })
         );
     }
 }

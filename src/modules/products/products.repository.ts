@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+ import { Injectable } from "@nestjs/common";
 import { MysqlService } from "src/database/mysql.service";
 
 @Injectable()
@@ -140,11 +140,12 @@ async findById(id: number) {
 
     return {
         ...product,
+        images: JSON.parse(product.images),
         attributes: attributeRows,
         comments: (commentRows as any).map(c => ({
             content: c.content,
             rating: c.rating,
-            user: c.user
+            user: typeof c.user === 'string' ? JSON.parse(c.user) : c.user
         })),
         similarProducts: similarRows
     };

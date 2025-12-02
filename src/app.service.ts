@@ -2,9 +2,11 @@ import { BadRequestException, Injectable } from "@nestjs/common";
 import { loginAdminDto } from "./app.controller";
 import { generateAdminToken, verifyAdminToken } from "./common/utils/token";
 import { FastifyReply } from "fastify";
+import { MailService } from "./common/utils/mail.service";
 
 @Injectable()
 export class AppService {
+    constructor(private readonly mailService: MailService) { }
     login(body: loginAdminDto, reply: FastifyReply) {
         const { username, password } = body;
         const admins = [
@@ -49,6 +51,12 @@ export class AppService {
         }
 
         throw new BadRequestException("Invalid username or password");
+
+    }
+    async sendTestMail(to: string) {
+        const result = await this.mailService.send(to);
+        console.log(result);
+        return { success: true, message: 'Email sent successfully' };
 
     }
 }
