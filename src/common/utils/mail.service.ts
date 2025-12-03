@@ -8,8 +8,9 @@ export class MailService {
     constructor() {
         this.transporter = nodemailer.createTransport({
             host: 'mail.mizbanfalocal.com',   // SMTP server
-            port: 465,
-            secure: true, //SSL
+            port: 587,
+            secure: false, //SSL
+            requireTLS: true,
             auth: {
                 user: 'support@sajlab.ir',
                 pass: '@Sajjad2005'
@@ -20,7 +21,6 @@ export class MailService {
     async send(to: string, otpCode: string = "262626", firstName = "کاربر") {
         const html = this.buildHtmlTemplate(firstName, otpCode);
         const text = this.buildTextTemplate(firstName, otpCode);
-
         return await this.transporter.sendMail({
             from: '"Irani Farsh" <support@sajlab.ir>', // ASCII safe
             to,
@@ -36,64 +36,95 @@ export class MailService {
     private buildHtmlTemplate(firstName: string, otpCode: string): string {
         return `
 <!doctype html>
-<html lang="fa">
+<html lang="fa" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width">
-  <title>کد تایید ایمیل</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>کد تایید</title>
+
+  <style>
+    /* Responsive Fix */
+    @media only screen and (max-width: 600px) {
+        .container {
+            width: 100% !important;
+            border-radius: 0 !important;
+        }
+        .content {
+            padding: 20px !important;
+        }
+        .otp-box {
+            font-size: 30px !important;
+        }
+    }
+  </style>
 </head>
-<body style="margin:0;padding:0;background-color:#f4f4f6;font-family:Tahoma,sans-serif;direction:rtl;text-align:right;">
-  <table width="100%" cellpadding="0" cellspacing="0">
+
+<body style="margin:0;padding:0;background:#f1f3f7;font-family:'Tahoma',sans-serif;direction:rtl;text-align:right;">
+
+  <table width="100%" cellspacing="0" cellpadding="0">
     <tr>
-      <td align="center" style="padding:24px;">
-        <table width="600" style="background:#fff;max-width:600px;border-radius:12px;overflow:hidden;">
+      <td align="center" style="padding:20px;">
+
+        <!-- Card -->
+        <table width="600" class="container"
+               style="background:white;max-width:600px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 5px 25px rgba(0,0,0,0.08);">
+
+          <!-- Header -->
           <tr>
-            <td style="padding:24px;text-align:center;">
-              <h1 style="margin:0;font-size:22px;">ایرانی فرش</h1>
+            <td style="background:#2563eb;color:white;padding:24px;text-align:center;">
+              <h1 style="margin:0;font-size:22px;font-weight:700;">ایرانی فرش</h1>
             </td>
           </tr>
 
+          <!-- Content -->
           <tr>
-            <td style="padding:0 28px 8px 28px;">
-              <p style="font-size:18px;margin:0;">سلام <strong>${firstName}</strong>،</p>
-            </td>
-          </tr>
+            <td class="content" style="padding:32px;">
 
-          <tr>
-            <td style="padding:12px 28px 20px 28px;">
-              <p style="color:#555;margin-bottom:16px;">
+              <p style="font-size:18px;margin:0 0 12px 0;">
+                سلام <strong>${firstName}</strong> عزیز،
+              </p>
+
+              <p style="font-size:15px;color:#555;margin-bottom:20px;">
                 کد تایید ورود شما به سامانه ایرانی فرش:
               </p>
 
-              <div style="text-align:center;margin:20px 0;">
-                <span style="font-size:28px;font-weight:bold;color:#2563eb;">${otpCode}</span>
+              <!-- OTP BOX -->
+              <div style="text-align:center;margin:32px 0;">
+                <div class="otp-box"
+                     style="display:inline-block;background:#f0f7ff;border:1px solid #d2e5ff;padding:14px 28px;border-radius:12px;font-size:34px;font-weight:700;color:#2563eb;letter-spacing:4px;">
+                  ${otpCode}
+                </div>
               </div>
 
-              <p style="font-size:14px;color:#777;">
-                این کد تنها برای ۱۰ دقیقه معتبر است.
+              <p style="font-size:14px;color:#777;margin-bottom:28px;text-align:center;">
+                این کد تا <strong>۱۰ دقیقه</strong> معتبر است.
               </p>
+
+              <p style="font-size:13px;color:#666;border-top:1px solid #eee;padding-top:20px;">
+                اگر شما این درخواست را ارسال نکرده‌اید، لطفاً این ایمیل را نادیده بگیرید.
+              </p>
+
             </td>
           </tr>
 
+          <!-- Footer -->
           <tr>
-            <td style="padding:18px 28px;border-top:1px solid #eee;font-size:13px;color:#666;">
-              اگر شما این درخواست را انجام ندادید، لطفاً این ایمیل را نادیده بگیرید.
-            </td>
-          </tr>
-
-          <tr>
-            <td style="padding:18px 28px 28px 28px;font-size:12px;color:#999;">
+            <td style="padding:18px 28px 28px 28px;font-size:12px;color:#999;text-align:center;background:#fafafa;">
               ایرانی فرش — ایران<br>
-              <a href="https://sajlab.ir/unsubscribe" style="color:#999;">لغو اشتراک</a>
+              <a href="https://sajlab.ir/unsubscribe" style="color:#777;text-decoration:none;">لغو اشتراک</a>
             </td>
           </tr>
+
         </table>
+        <!-- End Card -->
+
       </td>
     </tr>
   </table>
+
 </body>
 </html>
-        `;
+    `;
     }
 
     private buildTextTemplate(firstName: string, otpCode: string): string {

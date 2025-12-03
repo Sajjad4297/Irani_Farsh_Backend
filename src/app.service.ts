@@ -27,24 +27,26 @@ export class AppService {
             },
         ]
         const admin = admins.find(a => a.username === username && a.password === password);
-
+        const isLocalhost = true;
         if (admin) {
             const token = generateAdminToken(admin.username);
             reply.setCookie('token', token, {
                 httpOnly: true,
                 signed: true,
-                secure: false, //change to 'true' in production
-                sameSite: 'none', // change to 'strict' in production
+                secure: !isLocalhost, // false for localhost
+                sameSite: isLocalhost ? 'lax' : 'strict',
+                maxAge: 60 * 60 * 24 * 1,
                 path: '/',
-                maxAge: 60 * 60 * 24 * 1
+                domain: isLocalhost ? 'localhost' : '.yourdomain.com' // Optional
             });
             reply.setCookie('adminName', admin.name, {
                 httpOnly: false,
                 signed: true,
-                secure: false, //change to 'true' in production
-                sameSite: 'none', // change to 'strict' in production
-                path: '/',
+                secure: !isLocalhost, // false for localhost
+                sameSite: isLocalhost ? 'lax' : 'strict',
                 maxAge: 60 * 60 * 24 * 1,
+                path: '/',
+                domain: isLocalhost ? 'localhost' : '.yourdomain.com' // Optional
             });
 
             return { success: true, message: "Admin logged in successfully" };

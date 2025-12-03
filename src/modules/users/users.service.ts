@@ -9,20 +9,57 @@ import { User } from './interfaces/user.interface';
 import path from 'path';
 import crypto from 'crypto';
 import fs from 'fs';
+import { VerifyUserDto } from './dto/verify-user.dto';
+import { FastifyReply, FastifyRequest } from 'fastify';
+import { VerificationService } from './verification.service';
+import { MailService } from 'src/common/utils/mail.service';
 
 @Injectable()
 export class UsersService {
-    constructor(private readonly usersRepository: UsersRepository) { }
-    async register(body: RegisterUserDto) {
-        const userData: RegisterUserDto = { ...body, password: await hashPassword(body.password) };
-        const newUser = await this.usersRepository.register(userData);
+    constructor(private readonly usersRepository: UsersRepository,
+        private readonly verificationService: VerificationService,
+        private readonly mailService: MailService) { }
+    async register(body: RegisterUserDto,request: FastifyRequest, reply: FastifyReply) {
+        const cookie = request.cookies.reg_session;
 
-        if (!newUser) throw new ConflictException('Failed to create user');
-        const token = generateUserToken(newUser.insertId, userData.email);
-        return ({
-            success: true, message: 'User registered successfully', sajy: token,
-            user: { id: newUser.id, firstName: userData.firstName, lastName: userData.lastName }
+        if (cookie) {
+            throw new BadRequestException('try some later');
+        }
+
+        // Check if user already exists
+        const existingUser = await this.usersRepository.findByEmail(body.email);
+        if (existingUser) {
+            throw new ConflictException('Email is already registered');
+        }
+
+        // Hash password
+        const hashedPassword = await hashPassword(body.password);
+
+        // Create registration session
+        const sessionId = await this.verificationService.createRegistrationSession({
+            email: body.email,
+            firstName: body.firstName,
+            lastName: body.lastName,
+            password: hashedPassword,
         });
+
+        // Set HTTP-only cookie
+        reply.setCookie('reg_session', sessionId, {
+            httpOnly: true,
+            secure: false,
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 60 * 10, // 10 minutes in seconds
+        });
+
+        // Get OTP and send email
+        const otp: string = await this.verificationService.getOtpForSession(sessionId) as string;
+        await this.mailService.send(body.email, otp, body.firstName);
+
+        return {
+            success: true,
+            message: 'OTP sent to email',
+        };
     }
 
     async login(body: LoginUserDto) {
@@ -70,7 +107,7 @@ export class UsersService {
         });
     }
     async update(body: UpdateUserDto, user: { id: number; email: string }) {
-        if (!body || Object.keys(body).length === 0) {
+        if (!body.address && !body.email && !body.firstName && !body.lastName && !body.password && !body.phone) {
             return new BadRequestException('No data provided');
         }
         if (body.password) {
@@ -87,6 +124,73 @@ export class UsersService {
         const result = await this.usersRepository.findUserInfo(user.id);
         return ({ success: true, message: 'User info got successfully', result });
     }
+    async verify(body: VerifyUserDto, request: FastifyRequest, reply: FastifyReply) {
+        // Get session ID from cookie
+        const sessionId = request.cookies.reg_session;
 
+        if (!sessionId) {
+            throw new BadRequestException('Registration session expired. Please start again.');
+        }
 
+        // Verify OTP
+        const result = await this.verificationService.verifySession(sessionId, body.otp);
+
+        if (!result.isValid || !result.userData) {
+            throw new BadRequestException('Invalid or expired OTP');
+        }
+
+        // Create user in database
+        const newUser = await this.usersRepository.register(result.userData);
+
+        if (!newUser) {
+            throw new ConflictException('Failed to create user');
+        }
+
+        // Clear registration cookie
+        reply.clearCookie('reg_session');
+
+        // Generate auth token
+        const token = generateUserToken(newUser.insertId, result.userData.email);
+
+        return {
+            success: true,
+            message: 'User registered successfully',
+            sajy: token,
+            user: {
+                firstName: result.userData.firstName,
+                lastName: result.userData.lastName,
+                email: result.userData.email
+            }
+        };
+
+    }
+    async resend(request: FastifyRequest) {
+        const sessionId = request.cookies.reg_session;
+
+        if (!sessionId) {
+            throw new BadRequestException('No active registration session');
+        }
+
+        const session = await this.verificationService.getSession(sessionId);
+
+        if (!session) {
+            throw new BadRequestException('Session expired');
+        }
+
+        // Generate new OTP
+        const newOtp = await this.verificationService.regenerateOtp(sessionId);
+
+        // Send new OTP email
+        await this.mailService.send(
+            session.userData.email,
+            newOtp,
+            session.userData.firstName
+        );
+
+        return {
+            success: true,
+            message: 'New OTP sent to email'
+        };
+
+    }
 }

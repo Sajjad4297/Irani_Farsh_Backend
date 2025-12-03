@@ -7,17 +7,15 @@ export class UsersRepository {
     async register(userData) {
         const { email, firstName, lastName, password } = userData;
 
-        // 1. Check if email exists
-        const [existingUser]: any = await this.mysql.getPool().query('SELECT 1 FROM users WHERE email = ? LIMIT 1', [email]);
-
-        if (existingUser.length > 0) {
-            throw new BadRequestException('Email is already registered');
-        }
-
         const [result]: any = await
             this.mysql.getPool().query('INSERT INTO users (email, first_name, last_name, password) VALUES (?, ?, ?, ?)', [email, firstName, lastName, password]);
         return result;
 
+    }
+    async findByEmail(email: string) {
+        const [user]: any =
+            await this.mysql.getPool().query('SELECT 1 FROM users WHERE email = ? LIMIT 1', [email]);
+        return user[0];
     }
     async login(userData) {
         const { email } = userData;
