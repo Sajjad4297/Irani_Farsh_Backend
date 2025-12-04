@@ -17,7 +17,7 @@ export class CommentsRepository {
         const [result]: any = await this.mysql.getPool().query(`
             SELECT c.id,c.content,c.rating,
             JSON_OBJECT('firstName' , u.first_name , 'lastName' , u.last_name, 'profileImage', u.profile_image ) AS user,
-            JSON_OBJECT('slug',p.id, 'images',p.images) AS product
+            JSON_OBJECT('slug',p.id, 'images',p.images, 'title',p.title) AS product
             FROM comments c
             LEFT JOIN users u ON c.user_id = u.id
             LEFT JOIN products p ON c.product_id = p.id

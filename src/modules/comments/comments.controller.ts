@@ -4,6 +4,7 @@ import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
 import { UserAuthGuard } from 'src/common/guards/user-auth.guard';
 import { User } from 'src/common/decorators/user.decorator';
+import { AdminAuthGuard } from 'src/common/guards/admin-auth.guard';
 
 @Controller('comments')
 export class CommentsController {
@@ -16,11 +17,13 @@ export class CommentsController {
     }
 
     @Get()
+    @UseGuards(AdminAuthGuard)
     findAll() {
         return this.commentsService.findAll();
     }
 
     @Put(':id')
+    @UseGuards(AdminAuthGuard)
     update(@Param('id') id: string, @Body() updateCommentDto: UpdateCommentDto) {
         return this.commentsService.update(+id, updateCommentDto);
     }

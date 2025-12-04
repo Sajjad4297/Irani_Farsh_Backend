@@ -1,7 +1,7 @@
-import { Body, Controller, Get, Param, ParseEnumPipe, Post, Query, Res, UnauthorizedException, UseGuards, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseEnumPipe, Post, Query, Req, Res, UnauthorizedException, UseGuards, UseInterceptors } from '@nestjs/common';
 import { AppService } from './app.service';
 import { IsNotEmpty, IsString } from 'class-validator';
-import type { FastifyReply } from 'fastify/types/reply';
+import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AdminAuthGuard } from './common/guards/admin-auth.guard';
 import { AuthAttemptLogInterceptor } from './common/interceptors/auth-attempt-log.interceptor';
 import fs from 'fs';
@@ -47,8 +47,11 @@ export class AppController {
         return { success: true, log: data };
     }
     @Get('mail-test')
-    sendTestEmail(@Query('email',EmailPipe) email: string) {
+    sendTestEmail(@Query('email', EmailPipe) email: string) {
         return this.appService.sendTestMail(email);
     }
-
+    @Get('logout')
+    logout(@Req() request: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
+        return this.appService.logout(request, reply);
+    }
 }

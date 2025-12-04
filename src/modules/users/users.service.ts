@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
@@ -19,7 +19,7 @@ export class UsersService {
     constructor(private readonly usersRepository: UsersRepository,
         private readonly verificationService: VerificationService,
         private readonly mailService: MailService) { }
-    async register(body: RegisterUserDto,request: FastifyRequest, reply: FastifyReply) {
+    async register(body: RegisterUserDto, request: FastifyRequest, reply: FastifyReply) {
         const cookie = request.cookies.reg_session;
 
         if (cookie) {
@@ -45,11 +45,13 @@ export class UsersService {
 
         // Set HTTP-only cookie
         reply.setCookie('reg_session', sessionId, {
+            signed: true,
             httpOnly: true,
-            secure: false,
-            sameSite: 'lax',
+            secure: true,
+            sameSite: 'strict',
             path: '/',
-            maxAge: 60 * 10, // 10 minutes in seconds
+            maxAge: 60 * 10, // 10 minutes in seconds,
+            domain: '.sajlab.ir',   // <-- required for cross-subdomain cookie
         });
 
         // Get OTP and send email
@@ -126,11 +128,18 @@ export class UsersService {
     }
     async verify(body: VerifyUserDto, request: FastifyRequest, reply: FastifyReply) {
         // Get session ID from cookie
-        const sessionId = request.cookies.reg_session;
+        const signed: any = request.cookies?.reg_session;
 
-        if (!sessionId) {
+        if (!signed) {
             throw new BadRequestException('Registration session expired. Please start again.');
         }
+        const unsignResult = request.unsignCookie(signed);
+
+
+        if (!unsignResult.valid) {
+            throw new UnauthorizedException("Invalid cookie signature");
+        }
+        const sessionId = unsignResult.value;
 
         // Verify OTP
         const result = await this.verificationService.verifySession(sessionId, body.otp);
@@ -165,7 +174,19 @@ export class UsersService {
 
     }
     async resend(request: FastifyRequest) {
-        const sessionId = request.cookies.reg_session;
+        // Get session ID from cookie
+        const signed: any = request.cookies?.reg_session;
+
+        if (!signed) {
+            throw new BadRequestException('Registration session expired. Please start again.');
+        }
+        const unsignResult = request.unsignCookie(signed);
+
+
+        if (!unsignResult.valid) {
+            throw new UnauthorizedException("Invalid cookie signature");
+        }
+        const sessionId = unsignResult.value;
 
         if (!sessionId) {
             throw new BadRequestException('No active registration session');

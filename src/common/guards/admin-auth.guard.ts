@@ -1,4 +1,4 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from "@nestjs/common";
+import { CanActivate, ExecutionContext, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { FastifyRequest } from "fastify";
 import { verifyAdminToken } from "../utils/token";
 
@@ -7,10 +7,20 @@ import { verifyAdminToken } from "../utils/token";
 export class AdminAuthGuard implements CanActivate {
     canActivate(context: ExecutionContext): boolean {
         const req: FastifyRequest = context.switchToHttp().getRequest();
-        const token = req.cookies?.token;
-        if (!token) {
+        const signedToken: any = req.cookies?.token;
+        
+        if (!signedToken) {
             throw new ForbiddenException('Admin not logged in');
         }
+
+        const result = req.unsignCookie(signedToken);
+
+
+        if (!result.valid) {
+            throw new UnauthorizedException("Invalid cookie signature");
+        }
+        const token = result.value;
+
         const decoded = verifyAdminToken(token);
 
         if (!decoded) {

@@ -11,6 +11,7 @@ import { AuthAttemptLogInterceptor } from 'src/common/interceptors/auth-attempt-
 import { ImageValidationPipe } from 'src/common/pipes/image-validation.pipe';
 import { VerifyUserDto } from './dto/verify-user.dto';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { AdminAuthGuard } from 'src/common/guards/admin-auth.guard';
 
 @Controller('users')
 export class UsersController {
@@ -42,6 +43,7 @@ export class UsersController {
 
 
     @Get()
+    @UseGuards(AdminAuthGuard)
     findAll() {
         return this.usersService.findAll();
     }
