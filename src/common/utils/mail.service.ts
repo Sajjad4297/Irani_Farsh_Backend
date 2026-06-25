@@ -7,13 +7,12 @@ export class MailService {
 
     constructor() {
         this.transporter = nodemailer.createTransport({
-            host: 'mail.mizbanfalocal.com',   // SMTP server
-            port: 587,
-            secure: false, //SSL
-            requireTLS: true,
+            host: process.env.EMAIL_HOST,
+            port: Number(process.env.EMAIL_PORT),
+            secure: true,
             auth: {
-                user: 'support@sajlab.ir',
-                pass: '@Sajjad2005'
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASSWORD
             }
         });
     }
