@@ -1,11 +1,11 @@
 # Irani Farsh Backend
 
-Backend API for **Irani Farsh** — an e-commerce platform for Iranian carpets/rugs. Built with NestJS, Fastify, and MySQL.
+Backend API for **Irani Farsh** — an e-commerce platform for Iranian carpets/rugs. Built with NestJS, Fastify, and PostgreSQL.
 
 ## Tech Stack
 
 - **Framework**: NestJS 11 + Fastify
-- **Database**: MySQL (via `mysql2`)
+- **Database**: PostgreSQL (via `pg`)
 - **Auth**: JWT (cookie-based) + bcrypt
 - **File Uploads**: `@fastify/multipart`
 - **Caching**: `@nestjs/cache-manager`
@@ -18,16 +18,31 @@ Backend API for **Irani Farsh** — an e-commerce platform for Iranian carpets/r
 pnpm install
 ```
 
+### Database Setup
+
+Run the schema initialization script against your PostgreSQL instance:
+
+```bash
+psql -U your_postgres_user -d your_database_name -f schema.sql
+```
+
 ### Environment Variables
 
 Create a `.env` file in the project root:
 
 ```env
-DB_USER=your_mysql_user
-DB_PASSWORD=your_mysql_password
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=your_postgres_user
+DB_PASSWORD=your_postgres_password
 DB_NAME=your_database_name
 PORT=3000
 COOKIE_SECRET=your_cookie_secret
+
+# FarazSMS Configuration (IranPayamak)
+FARAZSMS_API_KEY=your_farazsms_api_key
+FARAZSMS_LINE_NUMBER=2191307530
+FARAZSMS_BASE_URL=https://api.iranpayamak.com
 ```
 
 ## Run
@@ -47,7 +62,7 @@ The API listens on `http://localhost:3000/api` by default.
 
 | Module | Path Prefix | Description |
 |--------|-------------|-------------|
-| **Users** | `/api/users` | Registration, email verification, login, profile management |
+| **Users** | `/api/users` | Registration, SMS OTP verification, login, profile management |
 | **Products** | `/api/products` | CRUD for carpet products with image upload |
 | **Categories** | `/api/categories` | Product categories with slug-based lookup |
 | **Comments** | `/api/comments` | User comments on products |
@@ -61,7 +76,7 @@ The API listens on `http://localhost:3000/api` by default.
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | POST | `/register` | — | Register new user |
-| POST | `/register/verify` | — | Verify email with OTP |
+| POST | `/register/verify` | — | Verify phone with OTP |
 | POST | `/register/resend` | — | Resend verification code |
 | POST | `/login` | — | Login |
 | GET | `/` | Admin | List all users |

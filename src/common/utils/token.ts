@@ -1,34 +1,45 @@
-import jwt from "jsonwebtoken";
+import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || "super_secret_key";
+const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_key';
 
-export function generateUserToken(userId: string, email: string): string {
-    return jwt.sign(
-        { id: userId, email },   // user-specific payload
-        JWT_SECRET,
-        { expiresIn: "30d" }      // token expires in 30 days
-    );
+export function generateUserToken(
+  userId: number | string,
+  phone?: string,
+  email?: string,
+): string {
+  return jwt.sign(
+    { id: userId, phone, email }, // user-specific payload
+    JWT_SECRET,
+    { expiresIn: '30d' }, // token expires in 30 days
+  );
 }
+
 export function verifyUserToken(token: string) {
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET) as { id: number; email: string };
-        return decoded; // contains user-specific data
-    } catch (err) {
-        return null;
-    }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      id: number;
+      phone?: string;
+      email?: string;
+    };
+    return decoded; // contains user-specific data
+  } catch (err) {
+    return null;
+  }
 }
+
 export function generateAdminToken(admin: string): string {
-    return jwt.sign(
-        {admin},
-        JWT_SECRET,
-        { expiresIn: "1d" }      // token expires in 1 days
-    );
+  return jwt.sign(
+    { admin },
+    JWT_SECRET,
+    { expiresIn: '1d' }, // token expires in 1 day
+  );
 }
+
 export function verifyAdminToken(token: string) {
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET) as string;
-        return decoded; // contains user-specific data
-    } catch (err) {
-        return null;
-    }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as string;
+    return decoded; // contains user-specific data
+  } catch (err) {
+    return null;
+  }
 }

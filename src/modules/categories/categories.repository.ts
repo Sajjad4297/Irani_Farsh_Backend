@@ -1,66 +1,85 @@
-import { Injectable } from "@nestjs/common";
-import { MysqlService } from "src/database/mysql.service";
-
+import { Injectable } from '@nestjs/common';
+import { PostgresService } from 'src/database/postgres.service';
 
 @Injectable()
 export class CategoriesRepository {
-    constructor(private readonly mysql: MysqlService) { }
+  constructor(private readonly postgres: PostgresService) {}
 
-    async create(data) {
-        const { title, slug, image } = data;
-        const [result]: any = await this.mysql.getPool().query('INSERT INTO categories (title , slug , image) VALUES (?,?,?)',
-            [title, slug.toLowerCase()
-                .trim()
-                .replace(/[^\w\s-]/g, '') // Remove special characters
-                .replace(/[\s_-]+/g, '-') // Replace spaces and underscores with hyphens
-                .replace(/^-+|-+$/g, '') // Remove leading/trailing hyphens, image]);
-                , image]);
-        return result;
-    }
-    async findAll() {
-        const [rows]: any = await this.mysql.getPool().query('SELECT id,title, slug, image from categories');
-        return rows;
-    }
-    async update(id: number, data) {
-        const { title, slug, image } = data;
-        const [result]: any = await this.mysql.getPool().query(`
-            UPDATE categories
-            SET title = ?, slug = ?, image = ?
-            WHERE id = ?;
-            `, [title, slug, image, id])
-        return result;
-    }
-    async delete(id: number) {
-        const [result]: any = await this.mysql.getPool().query('DELETE FROM categories WHERE id = ?', [id]);
-        return result;
-    }
-    async findProducts(slug: string) {
-        const [result]: any = await this.mysql.getPool().query(
-            `
+  async create(data: any) {
+    const { title, slug, image } = data;
+    const normalizedSlug = slug
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '') // Remove special characters
+      .replace(/[\s_-]+/g, '-') // Replace spaces and underscores with hyphens
+      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+
+    const result = await this.postgres
+      .getPool()
+      .query(
+        'INSERT INTO categories (title, slug, image) VALUES ($1, $2, $3) RETURNING *',
+        [title, normalizedSlug, image],
+      );
+    return result.rows[0];
+  }
+
+  async findAll() {
+    const result = await this.postgres
+      .getPool()
+      .query('SELECT id, title, slug, image FROM categories');
+    return result.rows;
+  }
+
+  async update(id: number, data: any) {
+    const { title, slug, image } = data;
+    const result = await this.postgres.getPool().query(
+      `UPDATE categories
+             SET title = $1, slug = $2, image = $3
+             WHERE id = $4
+             RETURNING *;`,
+      [title, slug, image, id],
+    );
+    return result.rows[0];
+  }
+
+  async delete(id: number) {
+    const result = await this.postgres
+      .getPool()
+      .query('DELETE FROM categories WHERE id = $1', [id]);
+    return result;
+  }
+
+  async findProducts(slug: string) {
+    const result = await this.postgres.getPool().query(
+      `
             SELECT
                 c.title AS category,
-                (
-                    SELECT JSON_ARRAYAGG(
-                        JSON_OBJECT(
-                            'id', p.id,
-                            'title', p.title,
-                            'images', p.images,
-                            'rating', p.rating,
-                            'price', p.price,
-                            'size', p.size,
-                            'created_at', p.created_at,
-                            'discount', d.amount
+                COALESCE(
+                    (
+                        SELECT json_agg(
+                            json_build_object(
+                                'id', p.id,
+                                'title', p.title,
+                                'images', p.images,
+                                'rating', p.rating,
+                                'price', p.price,
+                                'size', p.size,
+                                'created_at', p.created_at,
+                                'discount', d.amount
+                            )
                         )
-                    )
+                        FROM products p
+                        LEFT JOIN discounts d ON p.id = d.product_id AND NOW() <= d.expires_at
+                        WHERE p.category_id = c.id
+                    ),
+                    '[]'::json
                 ) AS products
-            FROM products p
-            LEFT JOIN categories c ON p.category_id = c.id
-            LEFT JOIN discounts d ON p.id = d.product_id AND NOW() <= d.expires_at
-            WHERE c.slug = ?;
+            FROM categories c
+            WHERE c.slug = $1;
+            `,
+      [slug],
+    );
 
-            `, [slug]);
-
-        return result[0];
-
-    }
+    return result.rows[0];
+  }
 }

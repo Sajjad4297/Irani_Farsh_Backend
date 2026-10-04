@@ -1,53 +1,67 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
-import { MysqlService } from "src/database/mysql.service";
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { PostgresService } from 'src/database/postgres.service';
 
 @Injectable()
 export class CartItemsRepository {
-    constructor(private readonly mysql: MysqlService) { }
-    async create(data) {
-        const { userId, productId, quantity } = data;
-        const [result]: any =
-            await this.mysql.getPool().query('INSERT INTO cart_items (user_id , product_id, quantity) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE quantity = quantity + ?;'
-                , [userId, productId, quantity, quantity]);
-        return result;
+  constructor(private readonly postgres: PostgresService) {}
 
+  async create(data: any) {
+    const { userId, productId, quantity } = data;
+    const result = await this.postgres.getPool().query(
+      `INSERT INTO cart_items (user_id, product_id, quantity)
+             VALUES ($1, $2, $3)
+             ON CONFLICT (user_id, product_id)
+             DO UPDATE SET quantity = cart_items.quantity + EXCLUDED.quantity
+             RETURNING *;`,
+      [userId, productId, quantity],
+    );
+    return result.rows[0];
+  }
+
+  async update(data: any) {
+    const { userId, productId, quantity } = data;
+    if (quantity > 0) {
+      const result = await this.postgres.getPool().query(
+        `UPDATE cart_items
+                 SET quantity = $1
+                 WHERE user_id = $2 AND product_id = $3
+                 RETURNING *;`,
+        [quantity, userId, productId],
+      );
+      return result.rows[0];
+    } else {
+      const result = await this.postgres.getPool().query(
+        `DELETE FROM cart_items
+                 WHERE user_id = $1 AND product_id = $2
+                 RETURNING *;`,
+        [userId, productId],
+      );
+      return result.rows[0];
     }
+  }
 
-    async update(data) {
-        const { userId, productId, quantity } = data;
-        if (quantity > 0) {
-            const [result]: any =
-                await this.mysql.getPool().query('UPDATE cart_items SET quantity = ? WHERE user_id = ? AND product_id = ?;'
-                    , [quantity, userId, productId]);
-            return result;
-        } else {
-            const [result]: any =
-                await this.mysql.getPool().query('DELETE FROM cart_items WHERE user_id = ? AND product_id = ?;'
-                    , [userId, productId]);
-            return result;
-        }
+  async buyAll(userId: number) {
+    const client = await this.postgres.getPool().connect();
 
-    }
-    async buyAll(userId: number) {
-        const pool = this.mysql.getPool();
-        const conn = await pool.getConnection();
+    try {
+      await client.query('BEGIN');
 
-        try {
-            await conn.beginTransaction();
+      // 1. Get user's cart items
+      const cartItemsResult = await client.query(
+        `SELECT product_id, quantity FROM cart_items WHERE user_id = $1`,
+        [userId],
+      );
+      const cartItems = cartItemsResult.rows;
 
-            // 1. Get user's cart items
-            const [cartItems]: any = await conn.query(
-                `SELECT product_id, quantity FROM cart_items WHERE user_id = ?`,
-                [userId]
-            );
+      if (cartItems.length === 0) {
+        await client.query('ROLLBACK');
+        throw new BadRequestException('Cart is empty');
+      }
 
-            if (cartItems.length === 0) {
-                await conn.rollback();
-                throw new BadRequestException("Cart is empty");
-            }
-            // 2. Get products
-            const [products]: any = await conn.query(
-                `SELECT
+      // 2. Get products
+      const productIds = cartItems.map((item: any) => item.product_id);
+      const productsResult = await client.query(
+        `SELECT
                 p.id,
                 p.title,
                 p.images,
@@ -55,69 +69,83 @@ export class CartItemsRepository {
                 d.amount AS discount
                 FROM products p
                 LEFT JOIN discounts d ON p.id = d.product_id AND NOW() <= d.expires_at
-                  WHERE p.id IN (?)`,
-                [cartItems.map((item: any) => item.product_id)]
-            )
-            cartItems.forEach((item: any) => {
-                const product = products.find((p: any) => p.id === item.product_id);
-                item.product = JSON.stringify(product);
-            })
-            // 3. Insert into orders table
-            // Assuming orders table has: user_id, product_id,product, quantity
-            const orderInserts = cartItems.map((item: any) =>
-                [userId, item.product_id,item.product, item.quantity]
-            );
+                WHERE p.id = ANY($1::int[])`,
+        [productIds],
+      );
+      const products = productsResult.rows;
 
-            await conn.query(
-                `INSERT INTO orders (user_id, product_id, product, quantity)
-             VALUES ?`,
-                [orderInserts]
-            );
+      cartItems.forEach((item: any) => {
+        const product = products.find((p: any) => p.id === item.product_id);
+        item.product = JSON.stringify(product);
+      });
 
-            // 3. Delete the cart
-            await conn.query(
-                `DELETE FROM cart_items WHERE user_id = ?`,
-                [userId]
-            );
+      // 3. Insert into orders table
+      const placeholders: string[] = [];
+      const values: any[] = [];
+      cartItems.forEach((item: any, idx: number) => {
+        const offset = idx * 4;
+        placeholders.push(
+          `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4})`,
+        );
+        values.push(userId, item.product_id, item.product, item.quantity);
+      });
 
-            // 4. Commit the transaction
-            await conn.commit();
+      await client.query(
+        `INSERT INTO orders (user_id, product_id, product, quantity)
+                 VALUES ${placeholders.join(', ')}`,
+        values,
+      );
 
-            return true;
+      // 4. Delete the cart
+      await client.query(`DELETE FROM cart_items WHERE user_id = $1`, [userId]);
 
-        } catch (error) {
-            await conn.rollback();
-            throw error;
-        } finally {
-            conn.release();
-        }
+      // 5. Commit the transaction
+      await client.query('COMMIT');
+
+      return true;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
     }
-    async findAllOrders(userId: number) {
-        const [rows]: any = await this.mysql.getPool().query(
-            `SELECT
+  }
+
+  async findAllOrders(userId: number) {
+    const result = await this.postgres.getPool().query(
+      `SELECT
                 o.id,
-                o.user_id AS userId,
+                o.user_id AS "userId",
                 o.quantity,
-                p.id AS productId,
-                p.title AS productTitle,
-                p.images AS productImages,
-                p.price AS productPrice
+                p.id AS "productId",
+                p.title AS "productTitle",
+                p.images AS "productImages",
+                p.price AS "productPrice"
             FROM orders o
             JOIN products p ON o.product_id = p.id
-            WHERE o.user_id = ?
-            `, [userId]);
-        const orders = rows.length > 0 ? rows.map(item => ({
+            WHERE o.user_id = $1
+            `,
+      [userId],
+    );
+
+    const orders =
+      result.rows.length > 0
+        ? result.rows.map((item: any) => ({
             id: item.id,
             quantity: item.quantity,
             product: {
-                id: item.productId,
-                title: item.productTitle,
-                images: JSON.parse(item.productImages),
-                price: item.productPrice,
-                slug: "irf-" + item.id.toString().padStart(4, "0")
-            }
-        })) : null;
+              id: item.productId,
+              title: item.productTitle,
+              images:
+                typeof item.productImages === 'string'
+                  ? JSON.parse(item.productImages)
+                  : item.productImages,
+              price: item.productPrice,
+              slug: 'irf-' + item.id.toString().padStart(4, '0'),
+            },
+          }))
+        : null;
 
-        return  orders ;
-    }
+    return orders;
+  }
 }
