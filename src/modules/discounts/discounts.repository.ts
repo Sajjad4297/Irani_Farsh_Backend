@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PostgresService } from 'src/database/postgres.service';
 import { Discount } from './interfaces/discount.interface';
+import { safeJsonParse } from 'src/common/utils/json.util';
 
 @Injectable()
 export class DiscountsRepository {
@@ -28,6 +29,11 @@ export class DiscountsRepository {
         throw new BadRequestException(
           `A discount already exists for this product`,
         );
+      }
+
+      // Foreign key violation: the referenced product does not exist
+      if (err.code === '23503') {
+        throw new BadRequestException('Product does not exist');
       }
 
       throw new InternalServerErrorException('Something went wrong');
@@ -61,8 +67,7 @@ export class DiscountsRepository {
         rating: Number(row.rating),
         size: row.size,
         slug: 'irf-' + row.product_id.toString().padStart(4, '0'),
-        images:
-          typeof row.images === 'string' ? JSON.parse(row.images) : row.images,
+        images: safeJsonParse(row.images, []),
       },
     }));
   }

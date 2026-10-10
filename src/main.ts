@@ -7,22 +7,60 @@ import multipart from '@fastify/multipart';
 import fastifyStatic from '@fastify/static';
 import { join } from 'path';
 import fastifyCookie from '@fastify/cookie';
+import rateLimit from '@fastify/rate-limit';
 
 async function bootstrap() {
+    const cookieSecret = process.env.COOKIE_SECRET;
+    if (!cookieSecret) {
+        throw new Error(
+            'COOKIE_SECRET environment variable is required but not set. Refusing to start.',
+        );
+    }
+
     const app = await NestFactory.create<NestFastifyApplication>(
         AppModule,
-        new FastifyAdapter(),
+        // Set TRUST_PROXY=true only when running behind a reverse proxy, so the
+        // rate limiter sees the real client IP.
+        new FastifyAdapter({ trustProxy: process.env.TRUST_PROXY === 'true' }),
     );
 
+    // Stricter per-route limits for SMS/OTP issuance and credential endpoints.
+    // Must be registered BEFORE the rate-limit plugin so config is picked up.
+    const fastify = app.getHttpAdapter().getInstance();
+    fastify.addHook('onRoute', (routeOptions) => {
+        const url = routeOptions.url;
+        let limit: { max: number; timeWindow: string } | undefined;
+        if (/\/users\/register(\/resend)?$/.test(url)) {
+            limit = { max: 5, timeWindow: '10 minutes' };
+        } else if (/\/users\/register\/verify$/.test(url)) {
+            limit = { max: 10, timeWindow: '10 minutes' };
+        } else if (/\/(users\/)?login$/.test(url)) {
+            limit = { max: 10, timeWindow: '1 minute' };
+        }
+        if (limit) {
+            routeOptions.config = { ...(routeOptions.config as object), rateLimit: limit };
+        }
+    });
+    await app.register(rateLimit, { global: true, max: 300, timeWindow: '1 minute' });
+
+    // Trusted origins only (override with comma-separated CORS_ORIGINS).
+    const allowedOrigins = (
+        process.env.CORS_ORIGINS ??
+        'https://iranifarsh.neofy.ir,https://admin.iranifarsh.neofy.ir'
+    )
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean);
     app.enableCors({
-        origin: true,
+        origin: allowedOrigins,
         methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
         credentials: true,
     });
     app.setGlobalPrefix('api');
+    app.useGlobalFilters(new MyExceptionFilter());
     app.useGlobalPipes(
         new ValidationPipe({
-            whitelist: false,
+            whitelist: true,
             forbidNonWhitelisted: true,
             transform: true,
         }),
@@ -41,9 +79,18 @@ async function bootstrap() {
         root: join(__dirname, '..', 'uploads'),
         prefix: '/uploads/', // Explicit prefix
         decorateReply: false, // Important for NestJS with Fastify
+        // Uploaded content must never execute as a document/script.
+        setHeaders: (res) => {
+            res.setHeader('X-Content-Type-Options', 'nosniff');
+            res.setHeader(
+                'Content-Security-Policy',
+                "default-src 'none'; img-src 'self'; style-src 'none'; sandbox",
+            );
+            res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        },
     });
     await app.register(fastifyCookie, {
-        secret: process.env.COOKIE_SECRET || "supersecret@!#%$&",
+        secret: cookieSecret,
     });
 
     await app.listen(process.env.PORT ?? 3000, '0.0.0.0');

@@ -1,0 +1,14 @@
+node_modules
+dist
+.git
+.github
+.gitignore
+.env
+.env.*
+*.tsbuildinfo
+logs
+uploads
+.mantis
+test
+coverage
+*.md

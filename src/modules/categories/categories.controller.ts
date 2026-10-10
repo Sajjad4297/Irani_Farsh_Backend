@@ -4,7 +4,7 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { FastifyFileInterceptor } from 'src/common/interceptors/fastify-file.interceptor';
 import { Files } from 'src/common/decorators/files.decorator';
-import { ImageValidationPipe } from 'src/common/pipes/image-validation.pipe';
+import { ImageValidationPipe, OptionalImageValidationPipe } from 'src/common/pipes/image-validation.pipe';
 import { AdminAuthGuard } from 'src/common/guards/admin-auth.guard';
 
 @Controller('categories')
@@ -26,7 +26,7 @@ export class CategoriesController {
     @Put(':id')
     @UseGuards(AdminAuthGuard)
     @UseInterceptors(FastifyFileInterceptor)
-    update(@Param('id',ParseIntPipe) id: string, @Body() updateCategoryDto: UpdateCategoryDto , @Files() file) {
+    update(@Param('id',ParseIntPipe) id: string, @Body() updateCategoryDto: UpdateCategoryDto , @Files(OptionalImageValidationPipe) file) {
         return this.categoriesService.update(+id, updateCategoryDto, file);
     }
     @Delete(':id')

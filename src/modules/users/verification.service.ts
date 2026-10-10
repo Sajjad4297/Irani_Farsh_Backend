@@ -1,5 +1,5 @@
 // verification.service.ts
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, HttpException, HttpStatus } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import * as crypto from 'crypto';
@@ -7,6 +7,7 @@ import * as crypto from 'crypto';
 @Injectable()
 export class VerificationService {
   private readonly OTP_EXPIRY = 10 * 60 * 1000; // 10 minutes in milliseconds
+  private readonly RESEND_COOLDOWN = 60 * 1000; // 60 seconds
 
   constructor(
     @Inject(CACHE_MANAGER) private cacheManager: Cache
@@ -82,13 +83,26 @@ export class VerificationService {
       throw new Error('Session not found');
     }
 
-    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Enforce a cooldown between OTP issuances so resend can't be used to
+    // reset the attempt counter for rapid-fire guessing.
+    const lastSentAt = session.lastSentAt ?? session.createdAt;
+    const elapsed = Date.now() - lastSentAt;
+    if (elapsed < this.RESEND_COOLDOWN) {
+      const wait = Math.ceil((this.RESEND_COOLDOWN - elapsed) / 1000);
+      throw new HttpException(
+        `Please wait ${wait} seconds before requesting a new code`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
+    const newOtp = crypto.randomInt(100000, 1000000).toString();
     const remainingTTL = this.OTP_EXPIRY - (Date.now() - session.createdAt);
 
     await this.cacheManager.set(`reg:${sessionId}`, {
       ...session,
       otp: newOtp,
-      attempts: 0 // Reset attempts
+      lastSentAt: Date.now(),
+      attempts: 0 // Reset attempts (only after cooldown)
     }, remainingTTL);
 
     return newOtp;

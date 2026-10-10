@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PostgresService } from 'src/database/postgres.service';
+import { safeJsonParse } from 'src/common/utils/json.util';
 
 @Injectable()
 export class ProductsRepository {
@@ -151,22 +152,132 @@ export class ProductsRepository {
 
     return {
       ...product,
-      images:
-        typeof product.images === 'string'
-          ? JSON.parse(product.images)
-          : product.images,
+      images: safeJsonParse(product.images, []),
       attributes: attributeResult.rows,
       comments: commentResult.rows.map((c: any) => ({
         content: c.content,
         rating: c.rating,
-        user: typeof c.user === 'string' ? JSON.parse(c.user) : c.user,
+        user: safeJsonParse(c.user, {}),
       })),
       similarProducts: similarResult.rows.map((sp: any) => ({
         ...sp,
-        images:
-          typeof sp.images === 'string' ? JSON.parse(sp.images) : sp.images,
+        images: safeJsonParse(sp.images, []),
       })),
     };
+  }
+
+  async update(id: number, data: any) {
+    const { title, images, rating, price, size, attributes, categoryId } = data;
+    const client = await this.postgres.getPool().connect();
+    try {
+      await client.query('BEGIN');
+
+      const fields: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      if (title !== undefined) {
+        fields.push(`title = $${paramIndex++}`);
+        values.push(title);
+      }
+      if (images !== undefined) {
+        fields.push(`images = $${paramIndex++}`);
+        values.push(JSON.stringify(images));
+      }
+      if (rating !== undefined) {
+        fields.push(`rating = $${paramIndex++}`);
+        values.push(rating);
+      }
+      if (price !== undefined) {
+        fields.push(`price = $${paramIndex++}`);
+        values.push(price);
+      }
+      if (size !== undefined) {
+        fields.push(`size = $${paramIndex++}`);
+        values.push(size);
+      }
+      if (categoryId !== undefined) {
+        fields.push(`category_id = $${paramIndex++}`);
+        values.push(categoryId);
+      }
+
+      if (fields.length > 0) {
+        values.push(id);
+        const sql = `
+          UPDATE products
+          SET ${fields.join(', ')}
+          WHERE id = $${paramIndex}
+          RETURNING id
+        `;
+        const updateRes = await client.query(sql, values);
+        if (updateRes.rows.length === 0) {
+          await client.query('ROLLBACK');
+          return null;
+        }
+      } else {
+        const check = await client.query('SELECT id FROM products WHERE id = $1', [id]);
+        if (check.rows.length === 0) {
+          await client.query('ROLLBACK');
+          return null;
+        }
+      }
+
+      if (attributes !== undefined) {
+        await client.query(
+          `DELETE FROM attributes a
+           USING products_attributes pa
+           WHERE a.id = pa.attribute_id AND pa.product_id = $1`,
+          [id],
+        );
+        await client.query(
+          `DELETE FROM products_attributes WHERE product_id = $1`,
+          [id],
+        );
+
+        if (Array.isArray(attributes) && attributes.length > 0) {
+          const attrValues: any[] = [];
+          const attrPlaceholders: string[] = [];
+          attributes.forEach((attr: any, idx: number) => {
+            if (!attr.key || !attr.value) {
+              throw new Error('Attribute key and value are required');
+            }
+            const offset = idx * 2;
+            attrValues.push(attr.key, attr.value);
+            attrPlaceholders.push(`($${offset + 1}, $${offset + 2})`);
+          });
+
+          const insertAttrSql = `
+            INSERT INTO attributes (attr_key, attr_value)
+            VALUES ${attrPlaceholders.join(', ')}
+            RETURNING id
+          `;
+          const attrResult = await client.query(insertAttrSql, attrValues);
+          const attrIds = attrResult.rows.map((row: any) => row.id);
+
+          const linkPlaceholders: string[] = [];
+          const linkValues: any[] = [];
+          attrIds.forEach((attrId: number, idx: number) => {
+            const offset = idx * 2;
+            linkValues.push(id, attrId);
+            linkPlaceholders.push(`($${offset + 1}, $${offset + 2})`);
+          });
+
+          await client.query(
+            `INSERT INTO products_attributes (product_id, attribute_id)
+             VALUES ${linkPlaceholders.join(', ')}`,
+            linkValues,
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+      return { id };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   async delete(id: number) {

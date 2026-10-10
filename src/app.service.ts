@@ -4,6 +4,7 @@ import { generateAdminToken, verifyAdminToken } from './common/utils/token';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { MailService } from './common/utils/mail.service';
 import { SmsService } from './common/utils/sms.service';
+import bcrypt from 'bcrypt';
 
 @Injectable()
 export class AppService {
@@ -11,30 +12,36 @@ export class AppService {
     private readonly mailService: MailService,
     private readonly smsService: SmsService,
   ) {}
-  login(body: loginAdminDto, reply: FastifyReply) {
+
+  private static readonly DUMMY_HASH = bcrypt.hashSync('dummy-password', 12);
+
+  /**
+   * Admin accounts come from the ADMIN_USERS env var: a JSON array of
+   * { name, username, passwordHash } where passwordHash is a bcrypt hash.
+   */
+  private loadAdmins(): { name: string; username: string; passwordHash: string }[] {
+    const raw = process.env.ADMIN_USERS;
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  async login(body: loginAdminDto, reply: FastifyReply) {
     const { username, password } = body;
-    const admins = [
-      {
-        name: 'سجاد عزیز',
-        username: 'sajy',
-        password: '@Sajjad2005',
-      },
-      {
-        name: 'سجاد عزیز',
-        username: 'sjad002',
-        password: 'Sajjad1384@@',
-      },
-      {
-        name: 'مهدی عزیز',
-        username: 'mahdi-m84',
-        password: 'Mahdi1384',
-      },
-    ];
-    const admin = admins.find(
-      (a) => a.username === username && a.password === password,
-    );
+    const admins = this.loadAdmins();
+    const candidate = admins.find((a) => a.username === username);
+    // Always run a bcrypt compare to keep timing uniform for unknown users.
+    const hash = candidate?.passwordHash ?? AppService.DUMMY_HASH;
+    const passwordOk = await bcrypt.compare(String(password), hash);
+    const admin = candidate && passwordOk ? candidate : undefined;
     if (admin) {
       const token = generateAdminToken(admin.username);
+      const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
+
       reply.setCookie('token', token, {
         httpOnly: true,
         signed: true,
@@ -42,19 +49,24 @@ export class AppService {
         sameSite: 'strict',
         maxAge: 60 * 60 * 24 * 1,
         path: '/',
-        domain: '.sajlab.ir', // <-- required for cross-subdomain cookie
+        domain: cookieDomain,
       });
       reply.setCookie('adminName', admin.name, {
         httpOnly: false,
-        signed: true,
+        signed: false,
         secure: true,
         sameSite: 'strict',
         maxAge: 60 * 60 * 24 * 1,
         path: '/',
-        domain: '.sajlab.ir', // <-- required for cross-subdomain cookie
+        domain: cookieDomain,
       });
 
-      return { success: true, message: 'Admin logged in successfully' };
+      return {
+        success: true,
+        message: 'Admin logged in successfully',
+        adminName: admin.name,
+        token,
+      };
     }
 
     throw new BadRequestException('Invalid username or password');
@@ -64,14 +76,16 @@ export class AppService {
     if (!token) {
       throw new BadRequestException('Admin not logged in');
     }
+    const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
+
     reply.clearCookie('token', {
       path: '/',
-      domain: '.sajlab.ir',
+      domain: cookieDomain,
     });
 
     reply.clearCookie('adminName', {
       path: '/',
-      domain: '.sajlab.ir',
+      domain: cookieDomain,
     });
     return { success: true, message: 'Admin logged out successfully' };
   }

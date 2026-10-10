@@ -1,0 +1,26 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: irani-farsh-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      # Per server security rule: bind ONLY to 127.0.0.1 on the host, never 0.0.0.0
+      # API pattern: 4001, 4011, 4021...
+      - "127.0.0.1:${PORT:-4011}:3000"
+    volumes:
+      # Persist user/category/product uploaded images
+      - ./uploads:/app/uploads
+      # Persist application audit & action logs
+      - ./logs:/app/logs
+    networks:
+      - backend
+
+networks:
+  # Shared network on VPS connecting to Postgres (container `db` at /opt/postgres)
+  backend:
+    name: backend
+    external: true

@@ -65,14 +65,15 @@ export class UsersService {
     });
 
     // Set HTTP-only cookie
+    const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
     reply.setCookie('reg_session', sessionId, {
       signed: true,
       httpOnly: true,
       secure: true,
-      sameSite: 'strict',
+      sameSite: 'lax',
       path: '/',
       maxAge: 60 * 10, // 10 minutes in seconds,
-      domain: '.sajlab.ir', // <-- required for cross-subdomain cookie
+      domain: cookieDomain,
     });
 
     // Get OTP and send SMS
@@ -84,6 +85,7 @@ export class UsersService {
     return {
       success: true,
       message: 'OTP sent to phone',
+      sessionId,
     };
   }
 
@@ -160,8 +162,23 @@ export class UsersService {
       !body.password &&
       !body.phone
     ) {
-      return new BadRequestException('No data provided');
+      throw new BadRequestException('No data provided');
     }
+
+    // Ensure phone/email aren't already used by another account
+    if (body.phone) {
+      const existing = await this.usersRepository.findByPhone(body.phone);
+      if (existing && existing.id !== user.id) {
+        throw new ConflictException('Phone number is already registered');
+      }
+    }
+    if (body.email) {
+      const existing = await this.usersRepository.findByEmail(body.email);
+      if (existing && existing.id !== user.id) {
+        throw new ConflictException('Email is already registered');
+      }
+    }
+
     if (body.password) {
       body.password = await hashPassword(body.password);
     }
@@ -169,7 +186,15 @@ export class UsersService {
       body.address = JSON.stringify(body.address);
     }
 
-    await this.usersRepository.update(user.id, body);
+    try {
+      await this.usersRepository.update(user.id, body);
+    } catch (err: any) {
+      // Race between the pre-check and the update
+      if (err?.code === '23505') {
+        throw new ConflictException('Phone number or email is already registered');
+      }
+      throw err;
+    }
     return { success: true, message: 'User updated successfully' };
   }
 
@@ -183,20 +208,26 @@ export class UsersService {
     request: FastifyRequest,
     reply: FastifyReply,
   ) {
-    // Get session ID from cookie
+    // Get session ID from signed cookie, with fallback to body.sessionId
+    let sessionId: string | undefined;
     const signed: any = request.cookies?.reg_session;
 
-    if (!signed) {
+    if (signed) {
+      const unsignResult = request.unsignCookie(signed);
+      if (unsignResult.valid) {
+        sessionId = unsignResult.value;
+      }
+    }
+
+    if (!sessionId && body.sessionId) {
+      sessionId = body.sessionId;
+    }
+
+    if (!sessionId) {
       throw new BadRequestException(
         'Registration session expired. Please start again.',
       );
     }
-    const unsignResult = request.unsignCookie(signed);
-
-    if (!unsignResult.valid) {
-      throw new UnauthorizedException('Invalid cookie signature');
-    }
-    const sessionId = unsignResult.value;
 
     // Verify OTP
     const result = await this.verificationService.verifySession(
@@ -216,7 +247,8 @@ export class UsersService {
     }
 
     // Clear registration cookie
-    reply.clearCookie('reg_session');
+    const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
+    reply.clearCookie('reg_session', { path: '/', domain: cookieDomain });
 
     // Generate auth token
     const token = generateUserToken(
@@ -240,20 +272,20 @@ export class UsersService {
   }
 
   async resend(request: FastifyRequest) {
-    // Get session ID from cookie
+    // Get session ID from signed cookie, with fallback to body.sessionId
+    let sessionId: string | undefined;
     const signed: any = request.cookies?.reg_session;
 
-    if (!signed) {
-      throw new BadRequestException(
-        'Registration session expired. Please start again.',
-      );
+    if (signed) {
+      const unsignResult = request.unsignCookie(signed);
+      if (unsignResult.valid) {
+        sessionId = unsignResult.value;
+      }
     }
-    const unsignResult = request.unsignCookie(signed);
 
-    if (!unsignResult.valid) {
-      throw new UnauthorizedException('Invalid cookie signature');
+    if (!sessionId && (request.body as any)?.sessionId) {
+      sessionId = (request.body as any).sessionId;
     }
-    const sessionId = unsignResult.value;
 
     if (!sessionId) {
       throw new BadRequestException('No active registration session');

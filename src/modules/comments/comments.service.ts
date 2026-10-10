@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
 import { CommentsRepository } from './comments.repository';
+import { safeJsonParse } from 'src/common/utils/json.util';
 
 @Injectable()
 export class CommentsService {
@@ -20,15 +21,13 @@ export class CommentsService {
 
         if (data.length > 0) {
             data.forEach((comment: any) => {
-                if (typeof comment.user === "string") {
-                    comment.user = JSON.parse(comment.user);
+                comment.user = safeJsonParse(comment.user, {});
+                comment.product = safeJsonParse(comment.product, {});
+                if (comment.product) {
+                    comment.product.images = safeJsonParse(comment.product.images, []);
+                    const slug = "irf-" + (comment.product.slug ? comment.product.slug.toString().padStart(4, "0") : "");
+                    comment.product.slug = slug;
                 }
-                if (typeof comment.product === "string") {
-                    comment.product = JSON.parse(comment.product);
-                }
-                comment.product.images = JSON.parse(comment.product.images);
-                const slug = "irf-" + comment.product.slug?.toString()?.padStart(4, "0");
-                comment.product.slug = slug;
                 comment.rating = Number(comment.rating);
             });
             return ({ success: true, message: 'Comments got successfully', data });

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PostgresService } from 'src/database/postgres.service';
+import { safeJsonParse } from 'src/common/utils/json.util';
 
 @Injectable()
 export class UsersRepository {
@@ -34,7 +35,7 @@ export class UsersRepository {
   async findByEmail(email: string) {
     const result = await this.postgres
       .getPool()
-      .query('SELECT 1 FROM users WHERE email = $1 LIMIT 1', [email]);
+      .query('SELECT id FROM users WHERE email = $1 LIMIT 1', [email]);
     return result.rows[0];
   }
 
@@ -187,10 +188,7 @@ export class UsersRepository {
             product: {
               id: item.productId,
               title: item.productTitle,
-              images:
-                typeof item.productImages === 'string'
-                  ? JSON.parse(item.productImages)
-                  : item.productImages,
+              images: safeJsonParse(item.productImages, []),
               price: item.productPrice,
               slug: 'irf-' + item.id.toString().padStart(4, '0'),
               discount: item.discount,
@@ -201,14 +199,8 @@ export class UsersRepository {
     const orders =
       orderItemsResult.rows.length > 0
         ? orderItemsResult.rows.map((item: any) => {
-            const parsedProduct =
-              typeof item.product === 'string'
-                ? JSON.parse(item.product)
-                : item.product;
-            const images =
-              typeof parsedProduct.images === 'string'
-                ? JSON.parse(parsedProduct.images)
-                : parsedProduct.images;
+            const parsedProduct = safeJsonParse<any>(item.product, {});
+            const images = safeJsonParse(parsedProduct?.images, []);
             return {
               id: item.id,
               quantity: item.quantity,
@@ -217,7 +209,7 @@ export class UsersRepository {
                 images,
                 slug:
                   'irf-' +
-                  (parsedProduct.id
+                  (parsedProduct?.id
                     ? parsedProduct.id.toString().padStart(4, '0')
                     : item.id.toString().padStart(4, '0')),
               },
@@ -225,13 +217,7 @@ export class UsersRepository {
           })
         : null;
 
-    try {
-      if (typeof user.address === 'string') {
-        user.address = JSON.parse(user.address);
-      }
-    } catch (e) {
-      // Keep user address as is if not valid JSON
-    }
+    user.address = safeJsonParse(user.address, user.address);
 
     return {
       ...user,

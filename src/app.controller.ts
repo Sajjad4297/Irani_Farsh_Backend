@@ -48,13 +48,10 @@ export class AppController {
   ) {
     return this.appService.login(body, reply);
   }
+  @UseGuards(AdminAuthGuard)
   @Get('get-logs')
-  getLog(@Query('token') token: string) {
-    if (token !== '@Sajjad2005') {
-      throw new UnauthorizedException('Invalid token');
-    }
-
-    const logPath = path.resolve('/logs/user-actions.log');
+  getLog() {
+    const logPath = path.join(process.cwd(), 'logs', 'user-actions.log');
     if (!fs.existsSync(logPath)) {
       return { success: false, message: 'Log file not found' };
     }
@@ -62,10 +59,12 @@ export class AppController {
     const data = fs.readFileSync(logPath, 'utf8');
     return { success: true, log: data };
   }
+  @UseGuards(AdminAuthGuard)
   @Get('mail-test')
   sendTestEmail(@Query('email', EmailPipe) email: string) {
     return this.appService.sendTestMail(email);
   }
+  @UseGuards(AdminAuthGuard)
   @Get('sms-test')
   sendTestSms(@Query('phone') phone: string) {
     return this.appService.sendTestSms(phone);

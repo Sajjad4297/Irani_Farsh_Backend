@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PostgresService } from 'src/database/postgres.service';
+import { safeJsonParse } from 'src/common/utils/json.util';
 
 @Injectable()
 export class CartItemsRepository {
@@ -136,10 +137,7 @@ export class CartItemsRepository {
             product: {
               id: item.productId,
               title: item.productTitle,
-              images:
-                typeof item.productImages === 'string'
-                  ? JSON.parse(item.productImages)
-                  : item.productImages,
+              images: safeJsonParse(item.productImages, []),
               price: item.productPrice,
               slug: 'irf-' + item.id.toString().padStart(4, '0'),
             },

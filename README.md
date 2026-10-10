@@ -43,6 +43,15 @@ COOKIE_SECRET=your_cookie_secret
 FARAZSMS_API_KEY=your_farazsms_api_key
 FARAZSMS_LINE_NUMBER=2191307530
 FARAZSMS_BASE_URL=https://api.iranpayamak.com
+
+# Security & Auth (Required)
+JWT_SECRET=your_strong_jwt_secret
+COOKIE_SECRET=your_strong_cookie_secret
+ADMIN_USERS='[{"name":"Admin Name","username":"admin","passwordHash":"$2b$12$..."}]'
+
+# Optional
+CORS_ORIGINS=https://iranifarsh.neofy.ir,https://admin.iranifarsh.neofy.ir
+TRUST_PROXY=true
 ```
 
 ## Run
@@ -57,6 +66,33 @@ pnpm run start:prod
 ```
 
 The API listens on `http://localhost:3000/api` by default.
+
+## Docker Deployment (VPS with Shared PostgreSQL)
+
+This backend is designed to run in Docker on a VPS hosting multiple projects while connecting to the server's central PostgreSQL instance (`db` on Docker network `backend`).
+
+### 1. Port & Network Allocation (Per Server Operations Guide)
+- **Host Loopback Port**: `127.0.0.1:4011` (Project 2 API)
+- **Network**: `backend` (external network shared across projects)
+- **Postgres Container**: `db:5432`
+
+### 2. Prepare Database on Shared PostgreSQL (/opt/postgres)
+```bash
+# 1. Create isolated db & user
+docker compose -f /opt/postgres/docker-compose.yml exec -i db psql -U postgres < deploy/setup-database.sql
+
+# 2. Apply table schemas
+docker compose -f /opt/postgres/docker-compose.yml exec -i db psql -U iranifarsh -d iranifarsh_db < schema.sql
+```
+
+### 3. Deploy Backend Container
+```bash
+cp .env.example .env
+# Ensure DB_HOST=db, PORT=4011, and fill in secrets
+
+docker compose up -d --build
+```
+
 
 ## Modules
 

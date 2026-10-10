@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CategoriesRepository } from './categories.repository';
+import { safeJsonParse } from 'src/common/utils/json.util';
 import path from 'path';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -47,14 +48,12 @@ export class CategoriesService {
         if (!result || !result.category)
             throw new NotFoundException('Category not found');
 
-        if (typeof result.products === "string") {
-            result.products = JSON.parse(result.products);
-        }
+        result.products = safeJsonParse(result.products, []);
 
-        if (result.products.length > 0) {
+        if (Array.isArray(result.products) && result.products.length > 0) {
             result.products.forEach((product: any) => {
-                product.images = JSON.parse(product.images);
-                product.slug = "irf-" + product.id.toString().padStart(4, "0");
+                product.images = safeJsonParse(product.images, []);
+                product.slug = "irf-" + (product.id ? product.id.toString().padStart(4, "0") : "");
             });
         } else return ({ success: true, message: 'no products in this category', data: result });
 

@@ -1,0 +1,30 @@
+# Reference template matching /opt/postgres on the VPS
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_ROOT_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_ROOT_PASSWORD:-change_this_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    # Bound only to host loopback (no external exposure)
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+    name: shared_postgres_data
+
+networks:
+  backend:
+    name: backend
+    external: true
