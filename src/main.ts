@@ -21,7 +21,16 @@ async function bootstrap() {
         AppModule,
         // Set TRUST_PROXY=true only when running behind a reverse proxy, so the
         // rate limiter sees the real client IP.
-        new FastifyAdapter({ trustProxy: process.env.TRUST_PROXY === 'true' }),
+        new FastifyAdapter({
+            trustProxy: process.env.TRUST_PROXY === 'true',
+            rewriteUrl: (req) => {
+                const url = req.url || '/';
+                if (!url.startsWith('/api') && !url.startsWith('/uploads')) {
+                    return '/api' + url;
+                }
+                return url;
+            },
+        }),
     );
 
     // Stricter per-route limits for SMS/OTP issuance and credential endpoints.
@@ -44,15 +53,24 @@ async function bootstrap() {
     await app.register(rateLimit, { global: true, max: 300, timeWindow: '1 minute' });
 
     // Trusted origins only (override with comma-separated CORS_ORIGINS).
-    const allowedOrigins = (
-        process.env.CORS_ORIGINS ??
-        'https://iranifarsh.neofy.ir,https://admin.iranifarsh.neofy.ir'
-    )
-        .split(',')
-        .map((o) => o.trim())
-        .filter(Boolean);
+    const defaultOrigins = [
+        'https://iranifarsh.gawyhub.online',
+        'https://admin-iranifarsh.gawyhub.online',
+        'https://iranifarsh.neofy.ir',
+        'https://admin.iranifarsh.neofy.ir',
+    ];
+    const allowedOrigins = process.env.CORS_ORIGINS
+        ? process.env.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
+        : defaultOrigins;
+
     app.enableCors({
-        origin: allowedOrigins,
+        origin: (origin, callback) => {
+            if (!origin) return callback(null, true);
+            const isAllowed = allowedOrigins.some(
+                (o) => o === '*' || o.toLowerCase() === origin.toLowerCase(),
+            );
+            callback(null, isAllowed);
+        },
         methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
         credentials: true,
     });
