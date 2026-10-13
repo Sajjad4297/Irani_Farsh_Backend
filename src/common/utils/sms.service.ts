@@ -48,7 +48,7 @@ export class SmsService {
    */
   async sendOtp(phone: string, otpCode: string, firstName: string = 'کاربر') {
     const normalized = normalizePhoneNumber(phone);
-    const text = `کاربر گرامی ${firstName}\nکد تایید شما در ایرانی فرش: ${otpCode}\nاین کد تا ۱۰ دقیقه معتبر است.`;
+    const text = `کاربر گرامی ${firstName}\nکد تایید شما در ایرانی فرش: ${otpCode}`;
 
     return this.sendSms(normalized, text, otpCode);
   }
