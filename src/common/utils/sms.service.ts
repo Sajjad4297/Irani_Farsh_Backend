@@ -56,7 +56,7 @@ export class SmsService {
     /**
      * Send simple SMS message to one or multiple recipients
      */
-    async sendSms(recipients: string | string[], text: string, otpCode?: string, firstName?: string = "عزیز") {
+    async sendSms(recipients: string | string[], text: string, otpCode?: string, firstName: string = "عزیز") {
         const recipientList = (
             Array.isArray(recipients) ? recipients : [recipients]
         ).map(normalizePhoneNumber);
