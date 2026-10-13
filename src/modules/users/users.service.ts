@@ -141,6 +141,7 @@ export class UsersService {
     const ext = path.extname(image.filename); // ".png", ".jpg", etc.
     const newFilename = `img-${uniqueSuffix}${ext}`;
     const filePath = path.join('uploads/user', newFilename);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
 
     // Save the file
     fs.writeFileSync(filePath, image.buffer);

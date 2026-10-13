@@ -19,6 +19,7 @@ export class CategoriesService {
         const ext = path.extname(image.filename); // ".png", ".jpg", etc.
         const newFilename = `img-${uniqueSuffix}${ext}`;
         const filePath = path.join("uploads/category", newFilename);
+        fs.mkdirSync(path.dirname(filePath), { recursive: true });
 
         // Save the file
         fs.writeFileSync(filePath, image.buffer);
@@ -76,6 +77,7 @@ export class CategoriesService {
             const ext = path.extname(image.filename); // ".png", ".jpg", etc.
             const newFilename = `img-${uniqueSuffix}${ext}`;
             const filePath = path.join("uploads/category", newFilename);
+            fs.mkdirSync(path.dirname(filePath), { recursive: true });
 
             // Save the file
             fs.writeFileSync(filePath, image.buffer);
