@@ -7,6 +7,9 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      # Keep container-internal port fixed to 3000
+      - PORT=3000
     ports:
       # Per server security rule: bind ONLY to 127.0.0.1 on the host, never 0.0.0.0
       # API pattern: 4001, 4011, 4021...
