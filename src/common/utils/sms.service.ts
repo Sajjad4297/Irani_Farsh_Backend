@@ -29,6 +29,20 @@ export class SmsService {
     process.env.FARAZSMS_BASE_URL || 'https://api.iranpayamak.com'
   ).replace(/\/+$/, '');
 
+  private isPlaceholderKey(key?: string): boolean {
+    if (!key) return true;
+    const lower = key.trim().toLowerCase();
+    return (
+      lower === '' ||
+      lower.includes('your_') ||
+      lower.includes('api_key') ||
+      lower.includes('placeholder') ||
+      lower.includes('replace_with') ||
+      lower.startsWith('<') ||
+      lower.length < 10
+    );
+  }
+
   /**
    * Send OTP SMS via FarazSMS / IranPayamak simple SMS API
    */
@@ -36,24 +50,25 @@ export class SmsService {
     const normalized = normalizePhoneNumber(phone);
     const text = `کاربر گرامی ${firstName}\nکد تایید شما در ایرانی فرش: ${otpCode}\nاین کد تا ۱۰ دقیقه معتبر است.`;
 
-    return this.sendSms(normalized, text);
+    return this.sendSms(normalized, text, otpCode);
   }
 
   /**
    * Send simple SMS message to one or multiple recipients
    */
-  async sendSms(recipients: string | string[], text: string) {
+  async sendSms(recipients: string | string[], text: string, otpCode?: string) {
     const recipientList = (
       Array.isArray(recipients) ? recipients : [recipients]
     ).map(normalizePhoneNumber);
 
-    if (!this.apiKey) {
+    if (this.isPlaceholderKey(this.apiKey) || process.env.SMS_MOCK === 'true') {
       this.logger.warn(
-        `[FarazSMS] FARAZSMS_API_KEY is not configured. Mocking SMS to [${recipientList.join(', ')}]:\n"${text}"`,
+        `[FarazSMS] [MOCK OTP] Phone: ${recipientList.join(', ')} | OTP: [${otpCode || text}]`,
       );
       return {
         status: 'success',
         mock: true,
+        code: otpCode,
         recipients: recipientList,
         text,
       };
@@ -72,11 +87,13 @@ export class SmsService {
       const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'Api-Key': this.apiKey,
+          'Api-Key': (this.apiKey || '').trim(),
           Accept: 'application/json',
           'Content-Type': 'application/json',
+          'User-Agent': 'IraniFarshBackend/1.0',
         },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(10000),
       });
 
       if (!response.ok) {
@@ -108,6 +125,11 @@ export class SmsService {
         `[FarazSMS] Network or execution error: ${error.message}`,
         error.stack,
       );
+      if (otpCode) {
+        this.logger.warn(
+          `[FarazSMS] [FALLBACK OTP LOG] Phone: ${recipientList.join(', ')} | OTP: [${otpCode}]`,
+        );
+      }
       throw new InternalServerErrorException('SMS service connection failure');
     }
   }

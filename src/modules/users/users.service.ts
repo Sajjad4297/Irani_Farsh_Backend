@@ -35,7 +35,27 @@ export class UsersService {
     const cookie = request.cookies.reg_session;
 
     if (cookie) {
-      throw new BadRequestException('try some later');
+      let existingSessionId = cookie;
+      const unsignResult = request.unsignCookie(cookie);
+      if (unsignResult.valid) {
+        existingSessionId = unsignResult.value;
+      }
+      const existingSession = await this.verificationService.getSession(
+        existingSessionId,
+      );
+      // Only throttle if an in-flight registration for the exact same phone was issued less than 60s ago
+      if (
+        existingSession &&
+        existingSession.userData?.phone === body.phone &&
+        Date.now() - existingSession.createdAt < 60 * 1000
+      ) {
+        const waitSec = Math.ceil(
+          (60 * 1000 - (Date.now() - existingSession.createdAt)) / 1000,
+        );
+        throw new BadRequestException(
+          `لطفاً ${waitSec} ثانیه بعد مجدداً تلاش کنید`,
+        );
+      }
     }
 
     // Check if phone is already registered
@@ -64,7 +84,13 @@ export class UsersService {
       password: hashedPassword,
     });
 
-    // Set HTTP-only cookie
+    // Get OTP and send SMS first
+    const otp: string = (await this.verificationService.getOtpForSession(
+      sessionId,
+    )) as string;
+    await this.smsService.sendOtp(body.phone, otp, body.firstName);
+
+    // Set HTTP-only cookie ONLY after SMS is dispatched successfully
     const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
     reply.setCookie('reg_session', sessionId, {
       signed: true,
@@ -75,12 +101,6 @@ export class UsersService {
       maxAge: 60 * 10, // 10 minutes in seconds,
       domain: cookieDomain,
     });
-
-    // Get OTP and send SMS
-    const otp: string = (await this.verificationService.getOtpForSession(
-      sessionId,
-    )) as string;
-    await this.smsService.sendOtp(body.phone, otp, body.firstName);
 
     return {
       success: true,
