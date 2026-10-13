@@ -34,54 +34,67 @@ export class AppService {
   ];
 
   /**
-   * Admin accounts come from the ADMIN_USERS env var: a JSON array of
-   * { name, username, passwordHash } where passwordHash is a bcrypt hash.
-   * If not set, falls back to pre-hashed default admin accounts.
+   * Admin accounts come from the DEFAULT_ADMINS list plus any valid
+   * overrides / extra accounts in the ADMIN_USERS env var.
    */
   private loadAdmins(): { name: string; username: string; passwordHash: string }[] {
+    const adminsMap = new Map<string, { name: string; username: string; passwordHash: string }>();
+
+    // 1. Preload built-in accounts
+    for (const admin of AppService.DEFAULT_ADMINS) {
+      adminsMap.set(admin.username.toLowerCase(), { ...admin });
+    }
+
+    // 2. Load from ADMIN_USERS env if valid
     const raw = process.env.ADMIN_USERS;
-    let list: any[] = [];
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          list = parsed;
+        if (Array.isArray(parsed)) {
+          for (const item of parsed) {
+            if (!item.username) continue;
+            let hash = item.passwordHash || item.password || '';
+            if (typeof hash === 'string') {
+              hash = hash.replace(/\$\$/g, '$');
+            }
+            // Ignore incomplete placeholders like '$2b$12$...'
+            const isValidBcrypt = hash.startsWith('$2') && hash.length >= 50;
+            const isPlain = !hash.startsWith('$2') && hash.length > 0;
+            if (isValidBcrypt || isPlain) {
+              adminsMap.set(item.username.toLowerCase(), {
+                name: item.name || item.username,
+                username: item.username,
+                passwordHash: hash,
+              });
+            }
+          }
         }
       } catch {
-        // invalid JSON
+        // ignore invalid JSON
       }
     }
 
-    if (list.length === 0) {
-      list = AppService.DEFAULT_ADMINS;
-    }
-
-    return list.map((a) => {
-      let hash = a.passwordHash || a.password || '';
-      // Fix potential Docker-compose double-dollar escaping: $$2b$$ -> $2b$
-      if (typeof hash === 'string') {
-        hash = hash.replace(/\$\$/g, '$');
-      }
-      return {
-        name: a.name || a.username,
-        username: a.username,
-        passwordHash: hash,
-      };
-    });
+    return Array.from(adminsMap.values());
   }
 
   async login(body: loginAdminDto, reply: FastifyReply) {
     const { username, password } = body;
+    const userClean = (username || '').trim().toLowerCase();
     const admins = this.loadAdmins();
-    const candidate = admins.find((a) => a.username === username);
-    // Always run a bcrypt compare to keep timing uniform for unknown users.
-    const hash = candidate?.passwordHash ?? AppService.DUMMY_HASH;
+    const candidate = admins.find((a) => a.username.toLowerCase() === userClean);
+
     let passwordOk = false;
-    if (hash.startsWith('$2')) {
-      passwordOk = await bcrypt.compare(String(password), hash);
+    if (candidate) {
+      if (candidate.passwordHash.startsWith('$2')) {
+        passwordOk = await bcrypt.compare(String(password), candidate.passwordHash);
+      } else {
+        passwordOk = String(password) === candidate.passwordHash;
+      }
     } else {
-      passwordOk = String(password) === hash;
+      // Dummy compare for uniform timing against username enumeration
+      await bcrypt.compare(String(password), AppService.DUMMY_HASH);
     }
+
     const admin = candidate && passwordOk ? candidate : undefined;
     if (admin) {
       const token = generateAdminToken(admin.username);
