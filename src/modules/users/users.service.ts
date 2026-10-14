@@ -17,14 +17,14 @@ import fs from 'fs';
 import { VerifyUserDto } from './dto/verify-user.dto';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { VerificationService } from './verification.service';
-import { SmsService } from 'src/common/utils/sms.service';
+import { MailService } from 'src/common/utils/mail.service';
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly usersRepository: UsersRepository,
     private readonly verificationService: VerificationService,
-    private readonly smsService: SmsService,
+    private readonly mailService: MailService,
   ) {}
 
   async register(
@@ -43,10 +43,10 @@ export class UsersService {
       const existingSession = await this.verificationService.getSession(
         existingSessionId,
       );
-      // Only throttle if an in-flight registration for the exact same phone was issued less than 60s ago
+      // Only throttle if an in-flight registration for the exact same email was issued less than 60s ago
       if (
         existingSession &&
-        existingSession.userData?.phone === body.phone &&
+        existingSession.userData?.email === body.email &&
         Date.now() - existingSession.createdAt < 60 * 1000
       ) {
         const waitSec = Math.ceil(
@@ -58,17 +58,19 @@ export class UsersService {
       }
     }
 
-    // Check if phone is already registered
-    const existingPhone = await this.usersRepository.findByPhone(body.phone);
-    if (existingPhone) {
-      throw new ConflictException('Phone number is already registered');
+    // Check if email is already registered
+    const existingEmail = await this.usersRepository.findByEmail(body.email);
+    if (existingEmail) {
+      throw new ConflictException('Email is already registered');
     }
 
-    // Check if email is already registered if provided
-    if (body.email) {
-      const existingEmail = await this.usersRepository.findByEmail(body.email);
-      if (existingEmail) {
-        throw new ConflictException('Email is already registered');
+    // Check if phone is already registered, if provided
+    if (body.phone) {
+      const existingPhone = await this.usersRepository.findByPhone(
+        body.phone,
+      );
+      if (existingPhone) {
+        throw new ConflictException('Phone number is already registered');
       }
     }
 
@@ -77,20 +79,20 @@ export class UsersService {
 
     // Create registration session
     const sessionId = await this.verificationService.createRegistrationSession({
-      phone: body.phone,
-      email: body.email || null,
+      phone: body.phone || null,
+      email: body.email,
       firstName: body.firstName,
       lastName: body.lastName,
       password: hashedPassword,
     });
 
-    // Get OTP and send SMS first
+    // Get OTP and send it to the user's email first
     const otp: string = (await this.verificationService.getOtpForSession(
       sessionId,
     )) as string;
-    await this.smsService.sendOtp(body.phone, otp, body.firstName);
+    await this.mailService.sendOtp(body.email, otp, body.firstName);
 
-    // Set HTTP-only cookie ONLY after SMS is dispatched successfully
+    // Set HTTP-only cookie ONLY after the email was dispatched successfully
     const cookieDomain = process.env.COOKIE_DOMAIN || undefined;
     reply.setCookie('reg_session', sessionId, {
       signed: true,
@@ -104,15 +106,15 @@ export class UsersService {
 
     return {
       success: true,
-      message: 'OTP sent to phone',
+      message: 'OTP sent to email',
       sessionId,
     };
   }
 
   async login(body: LoginUserDto) {
-    const identifier = body.phone || body.email;
+    const identifier = body.email || body.phone;
     if (!identifier) {
-      throw new BadRequestException('Phone number or email is required');
+      throw new BadRequestException('Email or phone number is required');
     }
 
     const existingUser: any = await this.usersRepository.login(body);
@@ -321,16 +323,16 @@ export class UsersService {
     // Generate new OTP
     const newOtp = await this.verificationService.regenerateOtp(sessionId);
 
-    // Send new OTP SMS
-    await this.smsService.sendOtp(
-      session.userData.phone,
+    // Send new OTP email
+    await this.mailService.sendOtp(
+      session.userData.email,
       newOtp,
       session.userData.firstName,
     );
 
     return {
       success: true,
-      message: 'New OTP sent to phone',
+      message: 'New OTP sent to email',
     };
   }
 }

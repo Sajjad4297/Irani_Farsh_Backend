@@ -16,20 +16,20 @@ export class RegisterUserDto {
   @IsNotEmpty()
   lastName: string;
 
-  @IsString()
+  @IsEmail()
   @IsNotEmpty()
+  email: string;
+
+  @IsString()
+  @IsOptional()
   @Matches(/^(\+98|0)?9\d{9}$/, {
     message:
       'Phone number must be a valid Iranian mobile number (e.g. 09123456789 or +989123456789)',
   })
-  phone: string;
+  phone?: string;
 
   @IsString()
   @IsNotEmpty()
   @MinLength(6, { message: 'Password must be at least 6 characters' })
   password: string;
-
-  @IsEmail()
-  @IsOptional()
-  email?: string;
 }

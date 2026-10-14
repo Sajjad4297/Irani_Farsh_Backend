@@ -2,8 +2,8 @@
 
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
-    phone VARCHAR(32) NOT NULL UNIQUE,
-    email VARCHAR(255) UNIQUE,
+    phone VARCHAR(32) UNIQUE,
+    email VARCHAR(255) NOT NULL UNIQUE,
     first_name VARCHAR(100),
     last_name VARCHAR(100),
     password VARCHAR(255) NOT NULL,

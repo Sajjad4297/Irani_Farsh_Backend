@@ -1,143 +1,84 @@
-import { Injectable } from '@nestjs/common';
-import * as nodemailer from 'nodemailer';
+import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import emailjs from '@emailjs/nodejs';
+import 'dotenv/config';
 
 @Injectable()
 export class MailService {
-    private transporter;
+    private readonly logger = new Logger(MailService.name);
+    private readonly serviceId = process.env.EMAILJS_SERVICE_ID;
+    private readonly templateId = process.env.EMAILJS_TEMPLATE_ID;
+    private readonly publicKey = process.env.EMAILJS_PUBLIC_KEY;
+    private readonly privateKey = process.env.EMAILJS_PRIVATE_KEY;
 
-    constructor() {
-        this.transporter = nodemailer.createTransport({
-            host: process.env.EMAIL_HOST,
-            port: Number(process.env.EMAIL_PORT),
-            secure: true,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASSWORD
-            }
-        });
+    private isPlaceholder(value?: string): boolean {
+        if (!value) return true;
+        const lower = value.trim().toLowerCase();
+        return (
+            lower === '' ||
+            lower.includes('your_') ||
+            lower.includes('placeholder') ||
+            lower.includes('replace_with') ||
+            lower.startsWith('<') ||
+            lower.length < 6
+        );
     }
 
-    async send(to: string, otpCode: string = "262626", firstName = "کاربر") {
-        const html = this.buildHtmlTemplate(firstName, otpCode);
-        const text = this.buildTextTemplate(firstName, otpCode);
-        return await this.transporter.sendMail({
-            from: '"Irani Farsh" <support@sajlab.ir>', // ASCII safe
-            to,
-            subject: "کد تایید ایمیل شما - ایرانی فرش",
-            html,
-            text,
-            headers: {
-                "List-Unsubscribe": `<mailto:support@sajlab.ir>, <https://sajlab.ir/unsubscribe>`
-            }
-        });
+    private get isConfigured(): boolean {
+        return !(
+            this.isPlaceholder(this.serviceId) ||
+            this.isPlaceholder(this.templateId) ||
+            this.isPlaceholder(this.publicKey)
+        );
     }
 
-    private buildHtmlTemplate(firstName: string, otpCode: string): string {
-        return `
-<!doctype html>
-<html lang="fa" dir="rtl">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>کد تایید</title>
-
-  <style>
-    /* Responsive Fix */
-    @media only screen and (max-width: 600px) {
-        .container {
-            width: 100% !important;
-            border-radius: 0 !important;
+    /**
+     * Send a one-time password to the user's email via EmailJS.
+     *
+     * The EmailJS template (dashboard) is expected to use these variables:
+     *   {{to_email}}  - recipient address (set the template "To Email" field to {{to_email}})
+     *   {{to_name}}   - recipient first name
+     *   {{otp_code}}  - the one-time password
+     */
+    async sendOtp(to: string, otpCode: string = '262626', firstName: string = 'کاربر') {
+        if (!this.isConfigured || process.env.EMAIL_MOCK === 'true') {
+            this.logger.warn(
+                `[EmailJS] [MOCK OTP] Email: ${to} | OTP: [${otpCode}]`,
+            );
+            return {
+                status: 'success',
+                mock: true,
+                code: otpCode,
+                to,
+            };
         }
-        .content {
-            padding: 20px !important;
+
+        try {
+            const response = await emailjs.send(
+                this.serviceId as string,
+                this.templateId as string,
+                {
+                    to_email: to,
+                    to_name: firstName,
+                    otp_code: otpCode,
+                },
+                {
+                    publicKey: this.publicKey as string,
+                    privateKey: this.privateKey,
+                },
+            );
+
+            return response;
+        } catch (error: any) {
+            this.logger.error(
+                `[EmailJS] Failed to send OTP email: ${error?.text || error?.message || error}`,
+                error?.stack,
+            );
+            this.logger.warn(
+                `[EmailJS] [FALLBACK OTP LOG] Email: ${to} | OTP: [${otpCode}]`,
+            );
+            throw new InternalServerErrorException(
+                'Failed to send verification email',
+            );
         }
-        .otp-box {
-            font-size: 30px !important;
-        }
-    }
-  </style>
-</head>
-
-<body style="margin:0;padding:0;background:#f1f3f7;font-family:'Tahoma',sans-serif;direction:rtl;text-align:right;">
-
-  <table width="100%" cellspacing="0" cellpadding="0">
-    <tr>
-      <td align="center" style="padding:20px;">
-
-        <!-- Card -->
-        <table width="600" class="container"
-               style="background:white;max-width:600px;width:100%;border-radius:16px;overflow:hidden;box-shadow:0 5px 25px rgba(0,0,0,0.08);">
-
-          <!-- Header -->
-          <tr>
-            <td style="background:#2563eb;color:white;padding:24px;text-align:center;">
-              <h1 style="margin:0;font-size:22px;font-weight:700;">ایرانی فرش</h1>
-            </td>
-          </tr>
-
-          <!-- Content -->
-          <tr>
-            <td class="content" style="padding:32px;">
-
-              <p style="font-size:18px;margin:0 0 12px 0;">
-                سلام <strong>${firstName}</strong> عزیز،
-              </p>
-
-              <p style="font-size:15px;color:#555;margin-bottom:20px;">
-                کد تایید ورود شما به سامانه ایرانی فرش:
-              </p>
-
-              <!-- OTP BOX -->
-              <div style="text-align:center;margin:32px 0;">
-                <div class="otp-box"
-                     style="display:inline-block;background:#f0f7ff;border:1px solid #d2e5ff;padding:14px 28px;border-radius:12px;font-size:34px;font-weight:700;color:#2563eb;letter-spacing:4px;">
-                  ${otpCode}
-                </div>
-              </div>
-
-              <p style="font-size:14px;color:#777;margin-bottom:28px;text-align:center;">
-                این کد تا <strong>۱۰ دقیقه</strong> معتبر است.
-              </p>
-
-              <p style="font-size:13px;color:#666;border-top:1px solid #eee;padding-top:20px;">
-                اگر شما این درخواست را ارسال نکرده‌اید، لطفاً این ایمیل را نادیده بگیرید.
-              </p>
-
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="padding:18px 28px 28px 28px;font-size:12px;color:#999;text-align:center;background:#fafafa;">
-              ایرانی فرش — ایران<br>
-              <a href="https://sajlab.ir/unsubscribe" style="color:#777;text-decoration:none;">لغو اشتراک</a>
-            </td>
-          </tr>
-
-        </table>
-        <!-- End Card -->
-
-      </td>
-    </tr>
-  </table>
-
-</body>
-</html>
-    `;
-    }
-
-    private buildTextTemplate(firstName: string, otpCode: string): string {
-        return `
-سلام ${firstName}،
-
-کد تایید ورود شما به سامانه ایرانی فرش:
-
-${otpCode}
-
-این کد تنها برای ۱۰ دقیقه معتبر است.
-اگر شما این درخواست را انجام ندادید، این ایمیل را نادیده بگیرید.
-
-لغو اشتراک: https://sajlab.ir/unsubscribe
-        `;
     }
 }
