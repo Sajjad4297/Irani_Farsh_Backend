@@ -31,6 +31,10 @@ export class MailService {
         );
     }
 
+    async send(to: string, otpCode: string = '262626', firstName: string = 'کاربر') {
+        return this.sendOtp(to, otpCode, firstName);
+    }
+
     /**
      * Send a one-time password to the user's email via EmailJS.
      *

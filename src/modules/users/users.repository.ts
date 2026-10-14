@@ -13,7 +13,7 @@ export class UsersRepository {
       .getPool()
       .query(
         'INSERT INTO users (phone, email, first_name, last_name, password) VALUES ($1, $2, $3, $4, $5) RETURNING id, phone, email, first_name AS "firstName", last_name AS "lastName"',
-        [phone, email || null, firstName, lastName, password],
+        [phone || null, email, firstName, lastName, password],
       );
     const id = result.rows[0]?.id;
     return {
