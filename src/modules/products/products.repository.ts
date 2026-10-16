@@ -18,7 +18,7 @@ export class ProductsRepository {
         `INSERT INTO products (title, images, rating, price, size, category_id)
                  VALUES ($1, $2, $3, $4, $5, $6)
                  RETURNING id`,
-        [title, JSON.stringify(images), rating, price, size, categoryId],
+        [title, JSON.stringify(images), rating || 'متوسط', price, size, categoryId],
       );
       const productId = newProduct.rows[0].id;
 

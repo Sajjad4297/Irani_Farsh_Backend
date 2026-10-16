@@ -6,8 +6,8 @@ export class CreateProductDto {
   title: string;
 
   @IsString()
-  @IsNotEmpty()
-  rating: string;
+  @IsOptional()
+  rating?: string;
 
   @IsString()
   @IsNotEmpty()

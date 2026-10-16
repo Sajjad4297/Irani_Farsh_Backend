@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS products (
     id SERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     images TEXT NOT NULL,
-    rating NUMERIC(3, 2) DEFAULT 0,
+    rating VARCHAR(50) DEFAULT 'متوسط',
     price NUMERIC(12, 2) NOT NULL,
     size VARCHAR(100),
     category_id INT REFERENCES categories(id) ON DELETE SET NULL,
