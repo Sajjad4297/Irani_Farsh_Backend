@@ -54,9 +54,10 @@ async function bootstrap() {
 
     // Trusted origins only (override with comma-separated CORS_ORIGINS).
     const defaultOrigins = [
+        'https://iranifarsh.neofy.ir',
+        'https://admin-iranifarsh.neofy.ir',
         'https://iranifarsh.gawyhub.online',
         'https://admin-iranifarsh.gawyhub.online',
-        'https://iranifarsh.neofy.ir',
         'https://admin.iranifarsh.neofy.ir',
     ];
     const allowedOrigins = process.env.CORS_ORIGINS
