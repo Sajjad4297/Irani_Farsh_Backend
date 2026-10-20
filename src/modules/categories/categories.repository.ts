@@ -32,12 +32,35 @@ export class CategoriesRepository {
 
   async update(id: number, data: any) {
     const { title, slug, image } = data;
+    const fields: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (title !== undefined) {
+      fields.push(`title = $${paramIndex++}`);
+      values.push(title);
+    }
+    if (slug !== undefined) {
+      fields.push(`slug = $${paramIndex++}`);
+      values.push(slug);
+    }
+    if (image !== undefined) {
+      fields.push(`image = $${paramIndex++}`);
+      values.push(image);
+    }
+
+    if (fields.length === 0) {
+      const existing = await this.postgres.getPool().query('SELECT * FROM categories WHERE id = $1', [id]);
+      return existing.rows[0];
+    }
+
+    values.push(id);
     const result = await this.postgres.getPool().query(
       `UPDATE categories
-             SET title = $1, slug = $2, image = $3
-             WHERE id = $4
-             RETURNING *;`,
-      [title, slug, image, id],
+       SET ${fields.join(', ')}
+       WHERE id = $${paramIndex}
+       RETURNING *;`,
+      values,
     );
     return result.rows[0];
   }

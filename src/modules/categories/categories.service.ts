@@ -68,13 +68,13 @@ export class CategoriesService {
 
     }
 
-    async update(id: number, body: UpdateCategoryDto, file: { image: Express.Multer.File }) {
+    async update(id: number, body: UpdateCategoryDto, file: { image?: Express.Multer.File[] } | any) {
         // Extract filenames
-        const image = file.image?.[0];
+        const image = file?.image?.[0];
         if (image) {
             // Generate a unique filename but keep original extension
             const uniqueSuffix = crypto.randomBytes(5).toString("hex");
-            const ext = path.extname(image.filename); // ".png", ".jpg", etc.
+            const ext = path.extname(image.filename) || '.png';
             const newFilename = `img-${uniqueSuffix}${ext}`;
             const filePath = path.join("uploads/category", newFilename);
             fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -82,17 +82,15 @@ export class CategoriesService {
             // Save the file
             fs.writeFileSync(filePath, image.buffer);
 
-            const data = { ...body, image: newFilename }
+            const data = { ...body, image: newFilename };
             await this.categoriesRepository.update(id, data);
-
         } else {
-            const data = { ...body }
+            const data = { ...body };
             await this.categoriesRepository.update(id, data);
         }
 
-
         return ({
-            success: true, message: 'Category added successfully'
+            success: true, message: 'Category updated successfully'
         });
     }
 
